@@ -211,6 +211,34 @@
             "default": false,
             "label": "Disable pixel-aspect-ratio normalization",
             "keywords": "pixel aspect ratio,capsfilter,v4l2,workaround,advanced"
+        },
+        {
+            "name": "multiCameraEnabled",
+            "shortDesc": "Show several camera streams from one or more vehicles at the same time.",
+            "longDesc": "When enabled, the Fly View shows one main video plus thumbnails for every configured stream: streams entered manually per vehicle and streams reported by MAVLink cameras of all connected vehicles. The single-stream video source above is not used while this is enabled.",
+            "type": "bool",
+            "default": false,
+            "label": "Multiple camera streams",
+            "keywords": "multi camera,multiple cameras,multiple vehicles,thumbnails,video grid"
+        },
+        {
+            "name": "multiCameraMaxStreams",
+            "shortDesc": "Maximum number of streams decoded at the same time.",
+            "longDesc": "Each stream is decoded separately, so the limit protects the ground station from overload. Manually configured streams are taken first, then MAVLink camera streams.",
+            "type": "uint8",
+            "min": 1,
+            "max": 9,
+            "default": 4,
+            "label": "Maximum streams",
+            "keywords": "multi camera,stream limit"
+        },
+        {
+            "name": "multiCameraStreams",
+            "shortDesc": "Manually configured camera streams (JSON).",
+            "longDesc": "JSON array of objects with vehicleId (MAVLink system ID, 0 if not tied to a vehicle), name and uri (rtsp://, udp://, udp265://, mpegts:// or tcp://). Edited from the Video settings page.",
+            "type": "string",
+            "default": "[]",
+            "label": "Manual camera streams"
         }
     ]
 }

@@ -41,6 +41,25 @@
             ]
         },
         {
+            "heading": "Multiple Cameras",
+            "keywords": ["multi camera", "multiple cameras", "multiple vehicles", "thumbnails"],
+            "controls": [
+                {
+                    "setting": "videoSettings.multiCameraEnabled"
+                },
+                {
+                    "setting": "videoSettings.multiCameraMaxStreams",
+                    "showWhen": "QGroundControl.settingsManager.videoSettings.multiCameraEnabled.rawValue"
+                }
+            ]
+        },
+        {
+            "component": "MultiCameraSettings",
+            "sectionName": "Manual Camera Streams",
+            "keywords": ["multi camera", "rtsp", "udp", "stream url", "vehicle id"],
+            "showWhen": "QGroundControl.settingsManager.videoSettings.multiCameraEnabled.rawValue"
+        },
+        {
             "heading": "Settings",
             "keywords": ["aspect ratio", "low latency", "decoder", "hardware decode", "disable when disarmed", "gpu", "zero-copy"],
             "showWhen": "!sourceDisabled",

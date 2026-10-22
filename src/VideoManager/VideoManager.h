@@ -14,6 +14,7 @@
 #include <functional>
 #endif
 
+class MultiCameraManager;
 class QQuickWindow;
 class SubtitleWriter;
 class Vehicle;
@@ -26,6 +27,7 @@ class VideoManager : public QObject
     QML_ELEMENT
     QML_UNCREATABLE("")
     Q_MOC_INCLUDE("Vehicle.h")
+    Q_MOC_INCLUDE("MultiCameraManager.h")
 
     Q_PROPERTY(bool     autoStreamConfigured    READ autoStreamConfigured                       NOTIFY autoStreamConfiguredChanged)
     Q_PROPERTY(bool     decoding                READ decoding                                   NOTIFY decodingChanged)
@@ -43,6 +45,7 @@ class VideoManager : public QObject
     Q_PROPERTY(QSize    videoSize               READ videoSize                                  NOTIFY videoSizeChanged)
     Q_PROPERTY(QString  imageFile               READ imageFile                                  NOTIFY imageFileChanged)
     Q_PROPERTY(QString  uvcVideoSourceID        READ uvcVideoSourceID                           NOTIFY uvcVideoSourceIDChanged)
+    Q_PROPERTY(MultiCameraManager* multiCamera  READ multiCamera                                CONSTANT)
 
     friend class VideoManagerInitTest;
     friend class VideoManagerRestartTest;
@@ -53,6 +56,11 @@ public:
     ~VideoManager();
 
     static VideoManager *instance();
+
+    /// Deletes the oldest recordings when the storage limit setting is exceeded.
+    static void cleanupOldVideos();
+    /// File extension (without dot) for a VideoReceiver::FILE_FORMAT value.
+    static QString recordingFileExtension(int fileFormat);
 
     Q_INVOKABLE void grabImage(const QString &imageFile = QString());
     Q_INVOKABLE void startRecording(const QString &videoFile = QString());
@@ -80,6 +88,7 @@ public:
     QSize videoSize() const { return _videoSize; }
     QString imageFile() const { return _imageFile; }
     QString uvcVideoSourceID() const { return _uvcVideoSourceID; }
+    MultiCameraManager *multiCamera() const { return _multiCamera; }
     void setfullScreen(bool on);
 
 signals:
@@ -127,12 +136,12 @@ private:
     void _restartVideo(VideoReceiver *receiver);
     void _startReceiver(VideoReceiver *receiver);
     void _stopReceiver(VideoReceiver *receiver);
-    static void _cleanupOldVideos();
 
     QList<VideoReceiver*> _videoReceivers;
     QSet<VideoReceiver*> _pendingRestarts;  ///< Receivers stopped by _restartVideo(), to start again once stopped.
     SubtitleWriter *_subtitleWriter = nullptr;
     VideoSettings *_videoSettings = nullptr;
+    MultiCameraManager *_multiCamera = nullptr;
     QQuickWindow *_mainWindow = nullptr;
     Vehicle *_activeVehicle = nullptr;
 

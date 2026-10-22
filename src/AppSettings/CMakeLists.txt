@@ -131,6 +131,7 @@ qt_add_qml_module(
               SigningKeyManager.qml
               MockLink.qml
               MockLinkSettings.qml
+              MultiCameraSettings.qml
               OfflineMapEditor.qml
               OfflineMapInfo.qml
               OfflineMapSettings.qml

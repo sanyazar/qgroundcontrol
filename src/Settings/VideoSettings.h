@@ -34,6 +34,9 @@ public:
     DEFINE_SETTINGFACT(forceCpuVideoPath)
     DEFINE_SETTINGFACT(videoConversionElement)
     DEFINE_SETTINGFACT(disablePixelAspectRatio)
+    DEFINE_SETTINGFACT(multiCameraEnabled)
+    DEFINE_SETTINGFACT(multiCameraMaxStreams)
+    DEFINE_SETTINGFACT(multiCameraStreams)
 
     Q_PROPERTY(bool     streamConfigured        READ streamConfigured       NOTIFY streamConfiguredChanged)
     Q_PROPERTY(QString  rtspVideoSource         READ rtspVideoSource        CONSTANT)

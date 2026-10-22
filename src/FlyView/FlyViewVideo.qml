@@ -9,6 +9,9 @@ Item {
     property Item pipView
     property Item pipState: videoPipState
 
+    readonly property var  _multiCamera:        QGroundControl.videoManager.multiCamera
+    readonly property bool _multiCameraMode:    _multiCamera && _multiCamera.enabled
+
     PipState {
         id:         videoPipState
         pipView:    _root.pipView
@@ -16,11 +19,13 @@ Item {
 
         onWindowAboutToOpen: {
             QGroundControl.videoManager.stopVideo()
+            _root._multiCamera.stopAll()
             videoStartDelay.start()
         }
 
         onWindowAboutToClose: {
             QGroundControl.videoManager.stopVideo()
+            _root._multiCamera.stopAll()
             videoStartDelay.start()
         }
 
@@ -36,7 +41,10 @@ Item {
         interval:     2000;
         running:      false
         repeat:       false
-        onTriggered:  QGroundControl.videoManager.startVideo()
+        onTriggered: {
+            QGroundControl.videoManager.startVideo()
+            _root._multiCamera.restartAll()
+        }
     }
 
     //-- Video Streaming
@@ -44,7 +52,13 @@ Item {
         id:             videoStreaming
         anchors.fill:   parent
         useSmallFont:   _root.pipState.state !== _root.pipState.fullState
-        visible:        QGroundControl.videoManager.isStreamSource || QGroundControl.videoManager.isUvc
+        visible:        !_root._multiCameraMode && (QGroundControl.videoManager.isStreamSource || QGroundControl.videoManager.isUvc)
+    }
+
+    MultiCameraView {
+        anchors.fill:   parent
+        compact:        _root.pipState.state !== _root.pipState.fullState
+        visible:        _root._multiCameraMode
     }
 
     QGCLabel {
@@ -85,7 +99,7 @@ Item {
     MouseArea {
         id:                         flyViewVideoMouseArea
         anchors.fill:               parent
-        enabled:                    pipState.state === pipState.fullState
+        enabled:                    pipState.state === pipState.fullState && !_root._multiCameraMode
 
         property real _pressX:      0
         property real _pressY:      0

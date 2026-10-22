@@ -5,6 +5,10 @@
 
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        MultiCameraManager.cc
+        MultiCameraManager.h
+        MultiCameraStream.cc
+        MultiCameraStream.h
         SubtitleWriter.cc
         SubtitleWriter.h
         VideoManager.cc

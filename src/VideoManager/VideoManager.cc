@@ -1,6 +1,7 @@
 #include "VideoManager.h"
 #include "AppSettings.h"
 #include "MavlinkCameraControlInterface.h"
+#include "MultiCameraManager.h"
 #include "MultiVehicleManager.h"
 #include "AppMessages.h"
 #include "QGCApplication.h"
@@ -51,6 +52,7 @@ VideoManager::VideoManager(QObject *parent)
     : QObject(parent)
     , _subtitleWriter(new SubtitleWriter(this))
     , _videoSettings(SettingsManager::instance()->videoSettings())
+    , _multiCamera(new MultiCameraManager(this))
 {
     qCDebug(VideoManagerLog) << this;
 
@@ -72,6 +74,14 @@ VideoManager::~VideoManager()
 VideoManager *VideoManager::instance()
 {
     return _videoManagerInstance();
+}
+
+QString VideoManager::recordingFileExtension(int fileFormat)
+{
+    if (!VideoReceiver::isValidFileFormat(static_cast<VideoReceiver::FILE_FORMAT>(fileFormat))) {
+        return QString();
+    }
+    return QString::fromLatin1(kFileExtension[fileFormat]);
 }
 
 void VideoManager::startVideoBackendInit()
@@ -201,6 +211,16 @@ void VideoManager::init(QQuickWindow *mainWindow)
 
     (void) connect(this, &VideoManager::autoStreamConfiguredChanged, this, &VideoManager::_videoSourceChanged);
 
+    // Multi-camera mode owns the video ports while enabled, so the single-stream receivers must stay stopped.
+    (void) connect(_videoSettings->multiCameraEnabled(), &Fact::rawValueChanged, this, [this](const QVariant &value) {
+        if (value.toBool()) {
+            stopVideo();
+        } else if (hasVideo()) {
+            _restartAllVideos();
+        }
+    });
+    _multiCamera->init();
+
     if (VideoBackend::needsAsyncInit() && _initState.load() == InitState::NotStarted) {
         startVideoBackendInit();
     }
@@ -283,6 +303,8 @@ void VideoManager::_createVideoReceivers()
         return;
     }
 #endif
+    _multiCamera->setBackendReady();
+
     static const QStringList videoStreamList = {
         "videoContent",
         "thermalVideo"
@@ -312,6 +334,8 @@ void VideoManager::_createVideoReceivers()
 
 void VideoManager::cleanup()
 {
+    _multiCamera->cleanup();
+
     // Receivers must die here, not in ~VideoManager: that runs inside ~QCoreApplication, where queued events are no
     // longer delivered, so a receiver's worker thread never gets its quit task and the destructor waits forever.
     const QList<VideoReceiver*> receivers = _videoReceivers;
@@ -323,7 +347,7 @@ void VideoManager::cleanup()
     }
 }
 
-void VideoManager::_cleanupOldVideos()
+void VideoManager::cleanupOldVideos()
 {
     if (!SettingsManager::instance()->videoSettings()->enableStorageLimit()->rawValue().toBool()) {
         return;
@@ -368,7 +392,7 @@ void VideoManager::startRecording(const QString &videoFile)
         return;
     }
 
-    _cleanupOldVideos();
+    cleanupOldVideos();
 
     const QString savePath = SettingsManager::instance()->appSettings()->videoSavePath();
     if (savePath.isEmpty()) {
@@ -759,7 +783,8 @@ void VideoManager::_setActiveVehicle(Vehicle *vehicle)
         auto cameraManager = _activeVehicle->cameraManager();
         if (cameraManager) {
             MavlinkCameraControlInterface *pCamera = cameraManager->currentCameraInstance();
-            if (pCamera) {
+            // In multi-camera mode the previous vehicle's stream is still on screen.
+            if (pCamera && !_videoSettings->multiCameraEnabled()->rawValue().toBool()) {
                 pCamera->stopStream();
             }
             (void) disconnect(cameraManager, &QGCCameraManager::streamChanged, this, &VideoManager::_videoSourceChanged);
@@ -864,6 +889,11 @@ void VideoManager::_startReceiver(VideoReceiver *receiver)
 
     if (receiver->uri().isEmpty()) {
         qCDebug(VideoManagerLog) << "VideoUri is NULL" << receiver->name();
+        return;
+    }
+
+    if (_videoSettings->multiCameraEnabled()->rawValue().toBool()) {
+        qCDebug(VideoManagerLog) << "Multi-camera mode active, not starting" << receiver->name();
         return;
     }
 
