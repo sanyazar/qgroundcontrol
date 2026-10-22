@@ -134,7 +134,7 @@ cmake --build --preset Windows-msi --target qgc-package
 
 `.github/workflows/packages.yml` (**Bastion Packages**):
 
-- **Ubuntu .deb** — Docker-образ `ubuntu`, перевіряє, що пакет називається `qgroundcontrol-bastion`; артефакт `qgroundcontrol-bastion-linux` (`.deb`, `.sha256`, AppImage);
+- **Ubuntu .deb** — окремий пакет для Ubuntu 22.04, 24.04 і 26.04 (Docker-образи `ubuntu-2204`, `ubuntu`, `ubuntu-2604`), бо кожен прив'язаний до версій ffmpeg/libvpx/openh264 свого релізу. Файли `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb`, артефакти `qgroundcontrol-bastion-ubuntu<реліз>`; AppImage (з 22.04, працює на більшості дистрибутивів) — артефакт `qgroundcontrol-bastion-appimage`. Ставте `.deb` саме для своєї версії Ubuntu (`lsb_release -rs`);
 - **Android .apk** — Docker-образ `android`, потім `deploy/android/sign-apk.sh` вирівнює й підписує APK; артефакт `qgroundcontrol-bastion-android` (`QGroundControl-Bastion.apk`, пакет `org.mavlink.qgroundcontrol.bastion`);
 - **Windows .msi** — Qt MSVC, GStreamer, WiX 5, пресет `Windows-msi`; артефакт `qgroundcontrol-bastion-windows`;
 - **GitHub release** — для тегів `vX.Y.Z…` публікує всі пакети як реліз.

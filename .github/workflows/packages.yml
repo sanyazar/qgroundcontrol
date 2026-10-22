@@ -1,6 +1,6 @@
 name: Bastion Packages
 
-# Builds the QGroundControl-Bastion packages: Ubuntu .deb (+ AppImage) and Android .apk in
+# Builds the QGroundControl-Bastion packages: Ubuntu .deb per release (+ AppImage) and Android .apk in
 # the Docker builder images, and the Windows .msi on a Windows runner. Tags matching v*
 # also publish all of them as a GitHub release.
 #
@@ -38,13 +38,33 @@ env:
 
 jobs:
   deb:
-    name: Ubuntu .deb
+    # Each .deb links against its release's ffmpeg/libvpx/openh264, so build one per Ubuntu release.
+    name: Ubuntu ${{ matrix.release }} .deb
     runs-on: ${{ vars.BASTION_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: ubuntu-2204
+            release: '22.04'
+            # Oldest glibc, so this AppImage runs on the widest range of distributions.
+            appimage: true
+          - variant: ubuntu
+            release: '24.04'
+            appimage: false
+          - variant: ubuntu-2604
+            release: '26.04'
+            appimage: false
     defaults:
       run:
         shell: bash
     steps:
+      - name: Set build directory
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: echo "BUILD_DIR=${RUNNER_TEMP}/build-${VARIANT}" >> "${GITHUB_ENV}"
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -64,12 +84,12 @@ jobs:
 
       - name: Build in Docker
         env:
-          BUILD_DIR: ${{ runner.temp }}/build-deb
-        run: python3 deploy/docker/run_docker.py build ubuntu
+          VARIANT: ${{ matrix.variant }}
+        run: python3 deploy/docker/run_docker.py build "${VARIANT}"
 
-      - name: Check package identity
+      - name: Check package identity and tag it with the Ubuntu release
         env:
-          BUILD_DIR: ${{ runner.temp }}/build-deb
+          RELEASE: ${{ matrix.release }}
         run: |
           shopt -s nullglob
           debs=("${BUILD_DIR}"/*.deb)
@@ -77,27 +97,43 @@ jobs:
             echo "::error::expected exactly one .deb, found ${#debs[@]}"
             exit 1
           fi
-          name=$(dpkg-deb --field "${debs[0]}" Package)
+          deb=${debs[0]}
+          name=$(dpkg-deb --field "${deb}" Package)
           if [ "${name}" != "qgroundcontrol-bastion" ]; then
             echo "::error::unexpected package name '${name}'"
             exit 1
           fi
           # Read the listing first: grep -q closing the pipe early makes dpkg-deb fail with SIGPIPE.
-          contents=$(dpkg-deb --contents "${debs[0]}")
+          contents=$(dpkg-deb --contents "${deb}")
           if ! grep -qF './usr/bin/QGroundControl-Bastion ->' <<< "${contents}"; then
             echo "::error::launcher /usr/bin/QGroundControl-Bastion is missing"
             exit 1
           fi
-          echo "Built ${debs[0]##*/}"
+          # qgroundcontrol-bastion_<ver>_amd64.deb -> qgroundcontrol-bastion_<ver>_ubuntu<release>_amd64.deb
+          arch=$(dpkg-deb --field "${deb}" Architecture)
+          tagged="${deb%_"${arch}".deb}_ubuntu${RELEASE}_${arch}.deb"
+          rm -f "${deb}.sha256"
+          mv "${deb}" "${tagged}"
+          (cd "${BUILD_DIR}" && sha256sum "${tagged##*/}" > "${tagged##*/}.sha256")
+          echo "Built ${tagged##*/}"
+          dpkg-deb --field "${tagged}" Depends
 
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
-          name: qgroundcontrol-bastion-linux
+          name: qgroundcontrol-bastion-ubuntu${{ matrix.release }}
           path: |
-            ${{ runner.temp }}/build-deb/*.deb
-            ${{ runner.temp }}/build-deb/*.deb.sha256
-            ${{ runner.temp }}/build-deb/*.AppImage
+            ${{ env.BUILD_DIR }}/*.deb
+            ${{ env.BUILD_DIR }}/*.deb.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload AppImage
+        if: matrix.appimage
+        uses: actions/upload-artifact@v7
+        with:
+          name: qgroundcontrol-bastion-appimage
+          path: ${{ env.BUILD_DIR }}/*.AppImage
           if-no-files-found: error
           retention-days: 30
 
