@@ -14,6 +14,7 @@
   - [Camera & Video](qgc-user-guide/fly_view/camera_tools.md)
     - [Video](qgc-user-guide/fly_view/video.md)
     - [Video Overlay](qgc-user-guide/fly_view/video_overlay.md)
+    - [Multiple Cameras](qgc-user-guide/fly_view/multi_camera.md)
   - [3D View](qgc-user-guide/viewer_3d/viewer_3d.md)
   - [GeoMap Engine (Tech Preview)](qgc-user-guide/fly_view/geoview.md)
 - [Plan](qgc-user-guide/plan_view/plan_view.md)

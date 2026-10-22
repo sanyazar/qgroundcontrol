@@ -7,6 +7,8 @@ You can press the switcher anywhere to toggle _Video_ and _Map_ to foreground.
 Video streaming is configured/enabled in [Application Settings > General tab > Video](../settings_view/general.md#video).
 :::
 
+To watch several cameras or vehicles at once, see [Multiple Cameras](multi_camera.md).
+
 You can further configure video display using controls on the switcher:
 
 - Resize the switcher by dragging the icon in the top right corner.

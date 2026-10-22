@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450" font-family="Helvetica, Arial, sans-serif">
+  <title>Multi-camera layout: main stream with thumbnails</title>
+  <rect width="800" height="450" fill="#1b1f23"/>
+  <rect x="0" y="0" width="800" height="36" fill="#000" opacity="0.55"/>
+  <text x="16" y="23" fill="#ddd" font-size="13">QGroundControl toolbar</text>
+
+  <g>
+    <rect x="182" y="48" width="140" height="79" fill="#3a4a5c" stroke="#fff" stroke-width="1.5"/>
+    <rect x="182" y="111" width="104" height="16" fill="#000" opacity="0.6"/>
+    <text x="186" y="123" fill="#fff" font-size="10">Vehicle 1 · Down</text>
+    <rect x="330" y="48" width="140" height="79" fill="#4b3a5c" stroke="#fff" stroke-width="1.5"/>
+    <rect x="330" y="111" width="112" height="16" fill="#000" opacity="0.6"/>
+    <text x="334" y="123" fill="#fff" font-size="10">Vehicle 2 · Front</text>
+    <rect x="478" y="48" width="140" height="79" fill="#5c4a3a" stroke="#fff" stroke-width="1.5"/>
+    <rect x="478" y="111" width="118" height="16" fill="#000" opacity="0.6"/>
+    <text x="482" y="123" fill="#fff" font-size="10">Vehicle 2 · Thermal</text>
+    <text x="400" y="145" fill="#9cf" font-size="12" text-anchor="middle">thumbnails — click to make main</text>
+  </g>
+
+  <text x="400" y="250" fill="#666" font-size="22" text-anchor="middle">main stream</text>
+  <text x="400" y="276" fill="#666" font-size="13" text-anchor="middle">double-click: full screen</text>
+
+  <rect x="16" y="400" width="150" height="30" rx="5" fill="#000" opacity="0.6"/>
+  <circle cx="30" cy="415" r="5" fill="#e53935"/>
+  <text x="42" y="420" fill="#fff" font-size="13">Vehicle 1 · Front</text>
+  <text x="16" y="392" fill="#9cf" font-size="11">red dot = recording</text>
+
+  <circle cx="728" cy="415" r="16" fill="#000" opacity="0.6"/>
+  <circle cx="728" cy="415" r="8" fill="#e53935"/>
+  <circle cx="768" cy="415" r="16" fill="#000" opacity="0.6"/>
+  <rect x="760" y="409" width="16" height="12" rx="2" fill="#fff"/>
+  <circle cx="768" cy="415" r="3.5" fill="#000"/>
+  <text x="784" y="392" fill="#9cf" font-size="11" text-anchor="end">record · photo</text>
+</svg>

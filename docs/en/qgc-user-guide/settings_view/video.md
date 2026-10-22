@@ -14,6 +14,18 @@ Connection settings vary by source type:
 - **TCP URL** — TCP stream address
 - **UDP URL** — UDP stream address and port (default: `0.0.0.0:5600`)
 
+## Multiple Cameras
+
+- **Multiple camera streams** — show several streams at once (one main stream plus thumbnails) from manually entered URLs and from the MAVLink cameras of all connected vehicles; the **Video Source** above is not used while this is on.
+  See [Multiple Cameras](../fly_view/multi_camera.md).
+- **Maximum streams** — how many streams are decoded at the same time (default: 4, range: 1–9).
+
+## Manual Camera Streams
+
+Shown when **Multiple camera streams** is on.
+One row per stream: **Vehicle ID** (MAVLink system ID, `0` if not tied to a vehicle), **Name**, and **Stream URL** (`rtsp://`, `udp://`, `udp265://`, `mpegts://` or `tcp://`).
+Use **Add Stream** to add a row and the trash icon to remove one.
+
 ## Settings
 
 - **Aspect Ratio** — aspect ratio for scaling video in the display widget (default: 16:9; set to 0.0 to disable scaling)
