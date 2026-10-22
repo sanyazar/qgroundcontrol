@@ -21,6 +21,15 @@
       "binaryDir": "${sourceDir}/build/Windows"
     },
     {
+      "name": "Windows-msi",
+      "displayName": "Windows x64 Release (.msi package)",
+      "inherits": ["release", "windows-base"],
+      "binaryDir": "${sourceDir}/build/Windows-msi",
+      "cacheVariables": {
+        "QGC_CPACK_GENERATOR": "WIX"
+      }
+    },
+    {
       "name": "Windows-debug",
       "displayName": "Windows x64 Debug",
       "inherits": ["debug", "windows-base"],
@@ -47,6 +56,7 @@
   ],
   "buildPresets": [
     { "name": "Windows", "configurePreset": "Windows", "configuration": "Release", "inherits": ["build-defaults"] },
+    { "name": "Windows-msi", "configurePreset": "Windows-msi", "configuration": "Release", "inherits": ["build-defaults"] },
     { "name": "Windows-debug", "configurePreset": "Windows-debug", "configuration": "Debug", "inherits": ["build-defaults"] },
     { "name": "Windows-arm64", "configurePreset": "Windows-arm64", "configuration": "Release", "inherits": ["build-defaults"] },
     { "name": "Windows-arm64-debug", "configurePreset": "Windows-arm64-debug", "configuration": "Debug", "inherits": ["build-defaults"] }
@@ -56,6 +66,7 @@
   ],
   "packagePresets": [
     { "name": "Windows", "configurePreset": "Windows", "configurations": ["Release"] },
+    { "name": "Windows-msi", "configurePreset": "Windows-msi", "generators": ["WIX"], "configurations": ["Release"] },
     { "name": "Windows-arm64", "configurePreset": "Windows-arm64", "configurations": ["Release"] }
   ],
   "workflowPresets": [

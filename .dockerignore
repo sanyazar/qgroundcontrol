@@ -67,6 +67,7 @@ AGENTS.md
 *.app
 *.dmg
 *.deb
+*.msi
 *.rpm
 *.AppImage
 *.apk

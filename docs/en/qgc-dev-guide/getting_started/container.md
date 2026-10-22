@@ -77,6 +77,41 @@ docker run --rm -v %cd%:/project/source -v %cd%/build:/project/build qgc-ubuntu-
 
 Depending on your system resources, or the resources assigned to your Docker Daemon, the build step can take some time.
 
+## Native Packages (.deb and .msi)
+
+### Ubuntu `.deb`
+
+The `linux` image builds a `.deb` next to the AppImage: on Debian/Ubuntu the `qgc-package` target defaults to the CPack `DEB` generator.
+
+```sh
+python3 deploy/docker/run_docker.py build ubuntu       # Ubuntu 24.04
+python3 deploy/docker/run_docker.py build ubuntu-2204  # Ubuntu 22.04
+ls build/*.deb
+```
+
+The package installs into `/opt/QGroundControl` and adds a desktop entry; install it with `sudo apt install ./build/qgroundcontrol_*.deb`.
+
+### Windows `.msi`
+
+`deploy/docker/Dockerfile.windows` builds the MSI with the CPack `WIX` generator (WiX Toolset 5).
+Windows images only run on a Windows host with Docker switched to Windows containers, so this cannot be done from a Linux machine.
+From the source root in PowerShell:
+
+```powershell
+docker build -f deploy/docker/Dockerfile.windows -t qgc-windows-docker .
+docker run --rm -m 16g --cpus 8 `
+    -v "${PWD}:C:\project\source" -v "${PWD}\build\docker-windows:C:\project\build" `
+    qgc-windows-docker
+```
+
+The installer is written to `build\docker-windows\QGroundControl-<version>-AMD64.msi`.
+Without Docker, the same package comes from the `Windows-msi` CMake preset on a machine with MSVC, Qt and the `wix` .NET tool:
+
+```powershell
+cmake --preset Windows-msi
+cmake --build --preset Windows-msi --target qgc-package
+```
+
 ## Troubleshooting
 
 ### Windows: 'bash\r': No such file or directory

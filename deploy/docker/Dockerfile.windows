@@ -1,0 +1,86 @@
+# escape=`
+# Windows builder image: MSVC Build Tools + Qt + GStreamer + WiX, produces the .msi installer.
+# Requires a Windows host with Docker switched to Windows containers (Windows 10/11 Pro or Server 2022).
+#
+#   docker build -f deploy/docker/Dockerfile.windows -t qgc-windows-docker .
+#   docker run --rm -m 16g --cpus 8 `
+#       -v "${PWD}:C:\project\source" -v "${PWD}\build\docker-windows:C:\project\build" `
+#       qgc-windows-docker
+#
+# The .msi lands in build\docker-windows. On Windows 11 / Server 2022 with a matching kernel
+# add `--isolation process` to both commands for much faster builds.
+
+# The host must run Windows Server 2022 / Windows 11 or newer for an ltsc2022 base.
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+ARG PYTHON_VERSION=3.12.10
+ARG GIT_VERSION=2.47.1
+ARG DOTNET_CHANNEL=8.0
+# WiX 6+ requires accepting the Open Source Maintenance Fee EULA; 5.x builds without it.
+ARG WIX_VERSION=5.0.2
+
+ENV DOTNET_ROOT=C:\dotnet `
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 `
+    DOTNET_NOLOGO=1 `
+    QGC_PYTHON_ENV=C:\qgc-venv `
+    QGC_TOOLS_PROJECT=C:\qgc-tools
+
+# Qt and GStreamer install trees exceed MAX_PATH in places.
+RUN New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force | Out-Null
+
+# Python. Machine-level variables set in one layer are inherited by later layers and `docker run`;
+# [Environment]::SetEnvironmentVariable is used instead of setx, which truncates values at 1024 chars.
+RUN Invoke-WebRequest "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-amd64.exe" -OutFile C:\python-setup.exe; `
+    Start-Process C:\python-setup.exe -Wait -ArgumentList '/quiet', 'InstallAllUsers=1', 'PrependPath=1', 'Include_test=0'; `
+    Remove-Item C:\python-setup.exe
+
+# Git: CPM fetches dependencies at configure time and the package version comes from `git describe`.
+RUN Invoke-WebRequest "https://github.com/git-for-windows/git/releases/download/v$env:GIT_VERSION.windows.1/MinGit-$env:GIT_VERSION-64-bit.zip" -OutFile C:\mingit.zip; `
+    Expand-Archive C:\mingit.zip -DestinationPath C:\git; `
+    Remove-Item C:\mingit.zip; `
+    [Environment]::SetEnvironmentVariable('PATH', 'C:\git\cmd;' + [Environment]::GetEnvironmentVariable('PATH', 'Machine'), 'Machine'); `
+    & C:\git\cmd\git.exe config --system --add safe.directory '*'
+
+# Locked Python environment (aqtinstall, cmake, ninja, generators), same lock file as the Linux image.
+COPY tools/pyproject.toml tools/uv.lock C:/qgc-tools/
+RUN python -m pip install --no-cache-dir uv; `
+    $env:UV_PROJECT_ENVIRONMENT = 'C:\qgc-venv'; `
+    uv sync --project C:\qgc-tools --python python --group scripts --group qt --group build --no-default-groups --no-install-project --frozen; `
+    if ($LASTEXITCODE -ne 0) { throw 'uv sync failed' }; `
+    [Environment]::SetEnvironmentVariable('PATH', 'C:\qgc-venv\Scripts;' + [Environment]::GetEnvironmentVariable('PATH', 'Machine'), 'Machine')
+
+COPY .github/build-config.json C:/tmp/tools/setup/
+COPY tools/setup/read_config.py tools/setup/install_qt.py C:/tmp/tools/setup/
+COPY tools/_bootstrap.py C:/tmp/tools/
+COPY tools/common/ C:/tmp/tools/common/
+COPY tools/qgc_tools/ C:/tmp/tools/qgc_tools/
+COPY tools/setup/install_dependencies/ C:/tmp/tools/setup/install_dependencies/
+
+# Visual Studio 2022 Build Tools (VCTools) and GStreamer (MSVC x86_64); sets GSTREAMER_1_0_ROOT_* machine-wide.
+RUN python C:\tmp\tools\setup\install_dependencies --platform windows --msvc; `
+    if ($LASTEXITCODE -ne 0) { throw 'install_dependencies failed' }
+
+# Qt for MSVC, version from .github/build-config.json.
+RUN python C:\tmp\tools\setup\install_qt.py install --from-config --host windows --target desktop --arch win64_msvc2022_64 --outdir C:\Qt; `
+    if ($LASTEXITCODE -ne 0) { throw 'Qt install failed' }; `
+    $qtVersion = (python C:\tmp\tools\setup\read_config.py --get qt.version).Trim(); `
+    [Environment]::SetEnvironmentVariable('QT_ROOT_DIR', "C:\Qt\$qtVersion\msvc2022_64", 'Machine')
+
+# .NET SDK + WiX Toolset (wix.exe) with the UI/Util extensions CPack's WIX generator uses.
+RUN Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile C:\dotnet-install.ps1; `
+    & C:\dotnet-install.ps1 -Channel $env:DOTNET_CHANNEL -InstallDir C:\dotnet; `
+    Remove-Item C:\dotnet-install.ps1; `
+    & C:\dotnet\dotnet.exe tool install --tool-path C:\wix wix --version $env:WIX_VERSION; `
+    if ($LASTEXITCODE -ne 0) { throw 'wix install failed' }; `
+    & C:\wix\wix.exe extension add -g "WixToolset.UI.wixext/$env:WIX_VERSION"; `
+    if ($LASTEXITCODE -ne 0) { throw 'wix UI extension failed' }; `
+    & C:\wix\wix.exe extension add -g "WixToolset.Util.wixext/$env:WIX_VERSION"; `
+    if ($LASTEXITCODE -ne 0) { throw 'wix Util extension failed' }; `
+    [Environment]::SetEnvironmentVariable('PATH', 'C:\wix;C:\dotnet;' + [Environment]::GetEnvironmentVariable('PATH', 'Machine'), 'Machine'); `
+    Remove-Item -Recurse -Force C:\tmp\tools
+
+COPY deploy/docker/build-windows.ps1 C:/build-windows.ps1
+WORKDIR C:\project\source
+ENTRYPOINT ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\build-windows.ps1"]

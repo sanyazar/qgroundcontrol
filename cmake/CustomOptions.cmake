@@ -325,7 +325,7 @@ set(QGC_APPIMAGE_APPDATA_DEVELOPER
 # WIN32/APPLE (not MACOS/LINUX) because Toolchain.cmake — which sets those — is
 # included after this file.
 if(WIN32)
-    set(_qgc_cpack_strings "" "NSIS" "IFW" "TXZ")
+    set(_qgc_cpack_strings "" "NSIS" "WIX" "IFW" "TXZ")
 elseif(APPLE)
     set(_qgc_cpack_strings "" "DragNDrop" "Bundle" "productbuild" "IFW" "TXZ")
 else()

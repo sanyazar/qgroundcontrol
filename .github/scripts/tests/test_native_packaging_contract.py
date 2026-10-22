@@ -307,3 +307,44 @@ def test_linux_package_defaults_do_not_leak_into_mobile_cross_compiles() -> None
     assert runtime_component in install
     assert runtime_component in gstreamer
     assert gstreamer.index(runtime_component) < gstreamer.index("gstreamer_install_platform_sdk")
+
+
+def test_windows_wix_module_generates_cpack_config(tmp_path) -> None:
+    architectures = (("AMD64", "x64", "AMD64"), ("ARM64", "arm64", "ARM64"))
+    for target_processor, wix_arch, package_arch in architectures:
+        source_dir = tmp_path / target_processor / "source"
+        build_dir = tmp_path / target_processor / "build"
+        (source_dir / ".github").mkdir(parents=True)
+        (source_dir / ".github/COPYING.md").write_text("license")
+        (source_dir / "README.md").write_text("readme")
+        (source_dir / "payload.txt").write_text("payload")
+        (source_dir / "CMakeLists.txt").write_text(
+            f"""
+cmake_minimum_required(VERSION 3.25)
+project(QGroundControl VERSION 5.0.0 DESCRIPTION "QGC" HOMEPAGE_URL "https://qgroundcontrol.com")
+list(APPEND CMAKE_MODULE_PATH "{CPACK_DIR.as_posix()}")
+set(CMAKE_SYSTEM_PROCESSOR {target_processor})
+set(QGC_ORG_NAME QGroundControl)
+set(QGC_WINDOWS_ICON_PATH "{(REPO_ROOT / "deploy/windows/WindowsQGC.ico").as_posix()}")
+install(FILES payload.txt DESTINATION . COMPONENT Runtime)
+include(CreateCPackWIX)
+""".lstrip()
+        )
+
+        result = subprocess.run(
+            ["cmake", "-S", str(source_dir), "-B", str(build_dir)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+
+        config = (build_dir / "CPackConfig.cmake").read_text()
+        assert 'set(CPACK_GENERATOR "WIX")' in config
+        assert 'set(CPACK_WIX_VERSION "4")' in config
+        assert f'set(CPACK_WIX_ARCHITECTURE "{wix_arch}")' in config
+        assert f'set(CPACK_PACKAGE_FILE_NAME "QGroundControl-5.0.0-{package_arch}")' in config
+        # A changed upgrade GUID would install side by side instead of upgrading.
+        assert 'set(CPACK_WIX_UPGRADE_GUID "717986C8-3F50-4E3E-85BD-24B9F1C8564E")' in config
+        assert (build_dir / "wix/COPYING.txt").is_file()
+        assert "wix/COPYING.txt" in config
