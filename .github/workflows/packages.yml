@@ -1,0 +1,162 @@
+name: Bastion Packages
+
+# Builds the QGroundControl-Bastion installers: Ubuntu .deb (+ AppImage) in the Docker
+# builder image and the Windows .msi on a hosted Windows runner. Tags matching v* also
+# publish both as a GitHub release.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/multi-camera
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    name: Ubuntu .deb
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Package versions come from git describe and need reachable tags.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Free Disk Space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Build in Docker
+        env:
+          BUILD_DIR: ${{ runner.temp }}/build
+        run: python3 deploy/docker/run_docker.py build ubuntu
+
+      - name: Check package identity
+        env:
+          BUILD_DIR: ${{ runner.temp }}/build
+        run: |
+          shopt -s nullglob
+          debs=("${BUILD_DIR}"/*.deb)
+          if [ "${#debs[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one .deb, found ${#debs[@]}"
+            exit 1
+          fi
+          name=$(dpkg-deb --field "${debs[0]}" Package)
+          if [ "${name}" != "qgroundcontrol-bastion" ]; then
+            echo "::error::unexpected package name '${name}'"
+            exit 1
+          fi
+          dpkg-deb --contents "${debs[0]}" | grep -q './usr/bin/QGroundControl-Bastion ->'
+          echo "Built ${debs[0]##*/}"
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: qgroundcontrol-bastion-linux
+          path: |
+            ${{ runner.temp }}/build/*.deb
+            ${{ runner.temp }}/build/*.deb.sha256
+            ${{ runner.temp }}/build/*.AppImage
+          if-no-files-found: error
+          retention-days: 30
+
+  msi:
+    name: Windows .msi
+    runs-on: windows-2022
+    timeout-minutes: 150
+    env:
+      WIX_VERSION: '5.0.2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build Setup
+        uses: ./.github/actions/build-setup
+        with:
+          qt-host: windows
+          qt-arch: win64_msvc2022_64
+          build-type: Release
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version $env:WIX_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tools = Join-Path $env:USERPROFILE '.dotnet\tools'
+          & (Join-Path $tools 'wix.exe') extension add -g "WixToolset.UI.wixext/$env:WIX_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $tools 'wix.exe') extension add -g "WixToolset.Util.wixext/$env:WIX_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tools | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Configure
+        uses: ./.github/actions/cmake-configure
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: Release
+          preset: Windows-msi
+          extra-args: -DQGC_ENABLE_GST_VIDEOSTREAMING=ON
+
+      - name: Build
+        uses: ./.github/actions/cmake-build
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: Release
+
+      - name: Create MSI
+        uses: ./.github/actions/cmake-build
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: Release
+          target: qgc-package
+          parallel: 'false'
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: qgroundcontrol-bastion-windows
+          path: |
+            ${{ runner.temp }}/build/*.msi
+            ${{ runner.temp }}/build/*.msi.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [deb, msi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: gh release create "${TAG}" dist/* --repo "${REPO}" --title "QGroundControl Bastion ${TAG}" --generate-notes

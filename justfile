@@ -18,7 +18,8 @@ build_dir := "build"
 build_preset := if build_type == "Debug" { "default" } else if build_type == "Release" { "default-release" } else if build_type == "RelWithDebInfo" { "default-relwithdebinfo" } else { "default-minsizerel" }
 # Use all cores by default; override with JOBS=N.
 jobs := env_var_or_default("JOBS", num_cpus())
-app_path := if host_os == "windows" { build_dir / build_type / "QGroundControl.exe" } else if host_os == "macos" { build_dir / build_type / "QGroundControl.app" / "Contents" / "MacOS" / "QGroundControl" } else { build_dir / build_type / "QGroundControl" }
+app_name := "QGroundControl-Bastion"
+app_path := if host_os == "windows" { build_dir / build_type / app_name + ".exe" } else if host_os == "macos" { build_dir / build_type / app_name + ".app" / "Contents" / "MacOS" / app_name } else { build_dir / build_type / app_name }
 
 # Default: show available commands
 default:

@@ -49,7 +49,8 @@ class TestResult:
 class QtTestRunner:
     """Runs QGroundControl Qt unit tests."""
 
-    BINARY_NAME = "QGroundControl"
+    # The Bastion fork renames the executable; plain QGroundControl keeps upstream build dirs working.
+    BINARY_NAMES = ("QGroundControl-Bastion", "QGroundControl")
     BUILD_TYPES = ("Debug", "Release", "RelWithDebInfo", "MinSizeRel")
 
     def __init__(
@@ -84,14 +85,14 @@ class QtTestRunner:
     def find_binary(self, build_type: str | None = None) -> Path | None:
         """Find the QGroundControl binary in build directory."""
         plat = self.detect_platform()
-        binary_name = f"{self.BINARY_NAME}.exe" if plat == "windows" else self.BINARY_NAME
-
         locations: list[Path] = []
-        if build_type:
-            locations.append(self.build_dir / build_type / binary_name)
-        locations.append(self.build_dir / binary_name)
-        for bt in self.BUILD_TYPES:
-            locations.append(self.build_dir / bt / binary_name)
+        for name in self.BINARY_NAMES:
+            binary_name = f"{name}.exe" if plat == "windows" else name
+            if build_type:
+                locations.append(self.build_dir / build_type / binary_name)
+            locations.append(self.build_dir / binary_name)
+            for bt in self.BUILD_TYPES:
+                locations.append(self.build_dir / bt / binary_name)
 
         for loc in locations:
             if loc.is_file():
@@ -99,11 +100,11 @@ class QtTestRunner:
 
         # macOS .app bundle fallback.
         if plat == "macos":
-            for bt in [build_type, *self.BUILD_TYPES] if build_type else self.BUILD_TYPES:
-                app = self.build_dir / bt / f"{self.BINARY_NAME}.app"
-                inner = app / "Contents" / "MacOS" / self.BINARY_NAME
-                if inner.is_file():
-                    return inner
+            for name in self.BINARY_NAMES:
+                for bt in [build_type, *self.BUILD_TYPES] if build_type else self.BUILD_TYPES:
+                    inner = self.build_dir / bt / f"{name}.app" / "Contents" / "MacOS" / name
+                    if inner.is_file():
+                        return inner
         return None
 
     def run_tests(

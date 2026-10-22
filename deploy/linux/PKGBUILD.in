@@ -5,7 +5,7 @@
 # primary Arch distributable.
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154  # makepkg consumes these globals / sets $pkgdir
-pkgname=qgroundcontrol
+pkgname=@QGC_ARCH_PKGNAME@
 # Version is resolved by CMake from git-describe; makepkg forbids '-' in pkgver.
 pkgver=@QGC_ARCH_PKGVER@
 pkgrel=1
@@ -25,7 +25,8 @@ options=('!strip' '!debug')
 
 package() {
     DESTDIR="${pkgdir}" cmake --install "@CMAKE_BINARY_DIR@" \
-        --component Runtime --prefix /opt/QGroundControl
+        --component Runtime --prefix "/opt/@CMAKE_PROJECT_NAME@"
     cmake -DQGC_NATIVE_PACKAGE_ROOT="${pkgdir}" \
+        -DQGC_APP_NAME="@CMAKE_PROJECT_NAME@" -DQGC_PACKAGE_NAME="@QGC_PACKAGE_NAME@" \
         -P "@CMAKE_SOURCE_DIR@/cmake/install/FinalizeNativePackage.cmake"
 }

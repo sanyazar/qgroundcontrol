@@ -81,7 +81,7 @@ export PYTHONNOUSERSITE=1
 export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 QGC_BINARY=""
-for expected_name in QGroundControl Custom-QGroundControl; do
+for expected_name in QGroundControl-Bastion QGroundControl Custom-QGroundControl; do
     if [ -x "${APPDIR}/usr/bin/${expected_name}" ] && [ -f "${APPDIR}/usr/bin/${expected_name}" ]; then
         QGC_BINARY="${APPDIR}/usr/bin/${expected_name}"
         break

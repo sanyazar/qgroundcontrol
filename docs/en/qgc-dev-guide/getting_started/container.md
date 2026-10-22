@@ -89,7 +89,8 @@ python3 deploy/docker/run_docker.py build ubuntu-2204  # Ubuntu 22.04
 ls build/*.deb
 ```
 
-The package installs into `/opt/QGroundControl` and adds a desktop entry; install it with `sudo apt install ./build/qgroundcontrol_*.deb`.
+The package is named `qgroundcontrol-bastion`, installs into `/opt/QGroundControl-Bastion` and adds a `QGroundControl-Bastion` launcher and desktop entry, so it can be installed next to the upstream `qgroundcontrol` package.
+Install it with `sudo apt install ./build/qgroundcontrol-bastion_*.deb`.
 
 ### Windows `.msi`
 
@@ -104,7 +105,7 @@ docker run --rm -m 16g --cpus 8 `
     qgc-windows-docker
 ```
 
-The installer is written to `build\docker-windows\QGroundControl-<version>-AMD64.msi`.
+The installer is written to `build\docker-windows\QGroundControl-Bastion-<version>-AMD64.msi` and installs into `Program Files\QGroundControl-Bastion`.
 Without Docker, the same package comes from the `Windows-msi` CMake preset on a machine with MSVC, Qt and the `wix` .NET tool:
 
 ```powershell

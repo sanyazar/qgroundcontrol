@@ -1,7 +1,24 @@
 # Keep the bundled application runtime private while exposing freedesktop
 # metadata and a launcher in their standard system locations.
 
-set(_qgc_app_prefix "opt/QGroundControl")
+# Names come from CPack (CPACK_PACKAGE_NAME / CPACK_QGC_PACKAGE_ID) or, for makepkg,
+# from -DQGC_APP_NAME / -DQGC_PACKAGE_NAME.
+if(DEFINED CPACK_PACKAGE_NAME)
+    set(_qgc_app_name "${CPACK_PACKAGE_NAME}")
+elseif(DEFINED QGC_APP_NAME)
+    set(_qgc_app_name "${QGC_APP_NAME}")
+else()
+    set(_qgc_app_name "QGroundControl")
+endif()
+if(DEFINED CPACK_QGC_PACKAGE_ID)
+    set(_qgc_package_id "${CPACK_QGC_PACKAGE_ID}")
+elseif(DEFINED QGC_PACKAGE_NAME)
+    set(_qgc_package_id "${QGC_PACKAGE_NAME}")
+else()
+    set(_qgc_package_id "org.mavlink.qgroundcontrol")
+endif()
+
+set(_qgc_app_prefix "opt/${_qgc_app_name}")
 
 if(DEFINED QGC_NATIVE_PACKAGE_ROOT AND NOT QGC_NATIVE_PACKAGE_ROOT STREQUAL "")
     set(_qgc_package_roots "${QGC_NATIVE_PACKAGE_ROOT}")
@@ -13,8 +30,8 @@ elseif(DEFINED CPACK_TEMPORARY_DIRECTORY AND IS_DIRECTORY "${CPACK_TEMPORARY_DIR
     )
     set(_qgc_package_roots "")
     foreach(qgc_entry IN LISTS _qgc_staged_entries)
-        if(qgc_entry MATCHES "/${_qgc_app_prefix}/bin/QGroundControl$")
-            string(REGEX REPLACE "/${_qgc_app_prefix}/bin/QGroundControl$" "" _qgc_root "${qgc_entry}")
+        if(qgc_entry MATCHES "/${_qgc_app_prefix}/bin/${_qgc_app_name}$")
+            string(REGEX REPLACE "/${_qgc_app_prefix}/bin/${_qgc_app_name}$" "" _qgc_root "${qgc_entry}")
             list(APPEND _qgc_package_roots "${_qgc_root}")
         endif()
     endforeach()
@@ -24,12 +41,12 @@ else()
 endif()
 
 if(NOT _qgc_package_roots)
-    message(FATAL_ERROR "QGC: no staged /${_qgc_app_prefix}/bin/QGroundControl executable found")
+    message(FATAL_ERROR "QGC: no staged /${_qgc_app_prefix}/bin/${_qgc_app_name} executable found")
 endif()
 
 foreach(qgc_root IN LISTS _qgc_package_roots)
     set(_qgc_private_root "${qgc_root}/${_qgc_app_prefix}")
-    if(NOT EXISTS "${_qgc_private_root}/bin/QGroundControl")
+    if(NOT EXISTS "${_qgc_private_root}/bin/${_qgc_app_name}")
         message(FATAL_ERROR "QGC: incomplete private runtime at ${_qgc_private_root}")
     endif()
 
@@ -40,7 +57,7 @@ foreach(qgc_root IN LISTS _qgc_package_roots)
         )
     endif()
 
-    set(_qgc_launcher "${qgc_root}/usr/bin/QGroundControl")
+    set(_qgc_launcher "${qgc_root}/usr/bin/${_qgc_app_name}")
     if(EXISTS "${_qgc_launcher}" OR IS_SYMLINK "${_qgc_launcher}")
         message(FATAL_ERROR "QGC: native package launcher already exists: ${_qgc_launcher}")
     endif()
@@ -59,8 +76,8 @@ foreach(qgc_root IN LISTS _qgc_package_roots)
     endforeach()
 
     foreach(qgc_required_path IN
-            ITEMS "applications/org.mavlink.qgroundcontrol.desktop" "icons/hicolor/256x256/apps/QGroundControl.png"
-                  "icons/hicolor/scalable/apps/QGroundControl.svg" "metainfo/org.mavlink.qgroundcontrol.appdata.xml"
+            ITEMS "applications/${_qgc_package_id}.desktop" "icons/hicolor/256x256/apps/${_qgc_app_name}.png"
+                  "icons/hicolor/scalable/apps/${_qgc_app_name}.svg" "metainfo/${_qgc_package_id}.appdata.xml"
     )
         if(NOT EXISTS "${qgc_root}/usr/share/${qgc_required_path}")
             message(FATAL_ERROR "QGC: required native package payload is missing: /usr/share/${qgc_required_path}")
@@ -77,7 +94,9 @@ foreach(qgc_root IN LISTS _qgc_package_roots)
     endif()
 
     file(MAKE_DIRECTORY "${qgc_root}/usr/bin")
-    file(CREATE_LINK "../../${_qgc_app_prefix}/bin/QGroundControl" "${_qgc_launcher}" SYMBOLIC RESULT _qgc_link_result)
+    file(CREATE_LINK "../../${_qgc_app_prefix}/bin/${_qgc_app_name}" "${_qgc_launcher}" SYMBOLIC
+         RESULT _qgc_link_result
+    )
     if(NOT _qgc_link_result STREQUAL "0")
         message(FATAL_ERROR "QGC: failed to create native package launcher: ${_qgc_link_result}")
     endif()

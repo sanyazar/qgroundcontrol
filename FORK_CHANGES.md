@@ -1,9 +1,11 @@
 # Зміни у форку sanyazar/qgroundcontrol
 
-Форк базується на `mavlink/qgroundcontrol` (ревізія `fba7dfc`, 22.10.2026) і додає дві речі:
+Форк базується на `mavlink/qgroundcontrol` (ревізія `fba7dfc`, 22.10.2026) і додає:
 
 1. **Мультикамера** — одночасний показ кількох відеопотоків: кілька камер на одному дроні, кілька дронів, або все разом.
 2. **Пакування** — MSI-інсталятор для Windows і Docker-образ для його збірки; `.deb` для Ubuntu збирається наявним Linux-образом.
+3. **Назва QGroundControl-Bastion** — усі імена й шляхи відрізняються від оригіналу, тож обидві версії можна встановити одночасно.
+4. **GitHub Actions** — автоматична збірка `.deb` і `.msi`.
 
 Документація для користувача англійською (як і решта документації QGC): [Multiple Cameras](docs/en/qgc-user-guide/fly_view/multi_camera.md), розділ **Multiple Cameras** у [Video settings](docs/en/qgc-user-guide/settings_view/video.md), збірка пакетів — [Building using Containers](docs/en/qgc-dev-guide/getting_started/container.md#native-packages-deb-and-msi).
 
@@ -13,7 +15,8 @@
 | ----- | ---- |
 | `feat(Video): show multiple camera streams from multiple vehicles` | Мультикамера: C++ менеджер потоків, QML-вигляд, налаштування, unit-тест |
 | `build(Windows): add MSI packaging and Windows Docker builder` | CPack WIX, пресет `Windows-msi`, `Dockerfile.windows`, тест пакування |
-| `docs: document multi-camera mode and fork changes` | Ця документація |
+| `docs: document multi-camera mode and fork changes` | Документація |
+| `build: rename to QGroundControl-Bastion and add package workflow` | Перейменування, `packages.yml` |
 
 ## 1. Мультикамера
 
@@ -75,7 +78,7 @@
 ```bash
 python3 deploy/docker/run_docker.py build ubuntu       # Ubuntu 24.04
 python3 deploy/docker/run_docker.py build ubuntu-2204  # Ubuntu 22.04
-sudo apt install ./build/qgroundcontrol_*.deb          # встановлюється в /opt/QGroundControl
+sudo apt install ./build/qgroundcontrol-bastion_*.deb  # встановлюється в /opt/QGroundControl-Bastion
 ```
 
 ### Windows `.msi`
@@ -91,7 +94,7 @@ docker build -f deploy/docker/Dockerfile.windows -t qgc-windows-docker .
 docker run --rm -m 16g --cpus 8 `
     -v "${PWD}:C:\project\source" -v "${PWD}\build\docker-windows:C:\project\build" `
     qgc-windows-docker
-# результат: build\docker-windows\QGroundControl-<версія>-AMD64.msi
+# результат: build\docker-windows\QGroundControl-Bastion-<версія>-AMD64.msi
 ```
 
 Без Docker, на машині з MSVC, Qt і `wix`:
@@ -100,6 +103,47 @@ docker run --rm -m 16g --cpus 8 `
 cmake --preset Windows-msi
 cmake --build --preset Windows-msi --target qgc-package
 ```
+
+## 3. QGroundControl-Bastion поруч з оригіналом
+
+Імена задані в `cmake/CustomOptions.cmake` (`QGC_APP_NAME`, `QGC_ORG_NAME`, `QGC_PACKAGE_NAME`); пакування й лаунчери беруть їх звідти.
+
+| Що | Оригінал | Bastion |
+| -- | -------- | ------- |
+| Пакет `.deb` / `.rpm` | `qgroundcontrol` | `qgroundcontrol-bastion` |
+| Файл `.deb` | `qgroundcontrol_<версія>_amd64.deb` | `qgroundcontrol-bastion_<версія>_amd64.deb` |
+| Каталог встановлення (Linux) | `/opt/QGroundControl` | `/opt/QGroundControl-Bastion` |
+| Команда запуску | `/usr/bin/QGroundControl` | `/usr/bin/QGroundControl-Bastion` |
+| Ярлик / іконки | `org.mavlink.qgroundcontrol.desktop`, `QGroundControl.png` | `org.mavlink.qgroundcontrol.bastion.desktop`, `QGroundControl-Bastion.png` |
+| AppImage | `QGroundControl-x86_64.AppImage` | `QGroundControl-Bastion-x86_64.AppImage` |
+| Windows | `Program Files\QGroundControl`, NSIS `.exe` | `Program Files\QGroundControl-Bastion`, `QGroundControl-Bastion-<версія>-AMD64.msi` |
+| Налаштування (Linux) | `~/.config/QGroundControl/` | `~/.config/QGroundControl-Bastion/` |
+| Дані (логи, місії, відео) | `~/Documents/QGroundControl` | `~/Documents/QGroundControl-Bastion` |
+| Android | `org.mavlink.qgroundcontrol` | `org.mavlink.qgroundcontrol.bastion` |
+
+Збірки не з релізного тегу (як і в оригіналі) додають до назви застосунку « Daily», тож налаштування й дані лежать у `…/QGroundControl-Bastion Daily`.
+Ім'я пакета Debian не може містити `_` (це роздільник між назвою й версією у файлі), тому пакет називається `qgroundcontrol-bastion`.
+
+Після перейменування стару папку збірки треба видалити (`rm -rf build`): CMake кешує старі імена.
+
+Не перейменовано: валідатори пакетів і workflow офіційного QGC (`.github/scripts/validate_native_package.py`, `deploy/docker/validate_native_package.py`, `linux.yml`, `docker.yml`) — вони, як і раніше, очікують `QGroundControl` і у форку не використовуються.
+
+## 4. GitHub Actions
+
+`.github/workflows/packages.yml` (**Bastion Packages**):
+
+- **Ubuntu .deb** — збирає Docker-образом `ubuntu`, перевіряє, що пакет називається `qgroundcontrol-bastion`; артефакт `qgroundcontrol-bastion-linux` (`.deb`, `.sha256`, AppImage);
+- **Windows .msi** — `windows-2022`, Qt MSVC, GStreamer, WiX 5, пресет `Windows-msi`; артефакт `qgroundcontrol-bastion-windows`;
+- **GitHub release** — для тегів `vX.Y.Z…` публікує обидва пакети як реліз.
+
+Запускається: кнопкою **Run workflow** на вкладці Actions, пушем у `feat/multi-camera` (крім змін лише в документації) і тегом:
+
+```bash
+git tag v5.2.1 && git push fork v5.2.1
+```
+
+Артефакти зберігаються 30 днів: Actions → запуск → **Artifacts**.
+Workflow офіційного QGC у форку запускаються лише для `master`, тегів `vX.Y.Z` і pull request'ів, тож пуші у `feat/multi-camera` їх не чіпають.
 
 ## Перевірка
 

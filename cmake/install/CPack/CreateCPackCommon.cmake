@@ -24,6 +24,9 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
 # Generic maintainer contact; DEB/RPM generators inherit this when their own
 # maintainer field is unset (CPackDeb warns without it).
 set(CPACK_PACKAGE_CONTACT "Dronecode <dev@dronecode.org>")
+# Native package name (DEB/RPM forbid upper case) and freedesktop id, also read by FinalizeNativePackage.cmake.
+string(TOLOWER "${CMAKE_PROJECT_NAME}" CPACK_QGC_NATIVE_PACKAGE_NAME)
+set(CPACK_QGC_PACKAGE_ID "${QGC_PACKAGE_NAME}")
 
 # ----------------------------------------------------------------------------
 # Package Files and Directories

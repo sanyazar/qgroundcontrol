@@ -43,7 +43,7 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_BINARY_DIR}/wix/COPYING.txt")
 # ----------------------------------------------------------------------------
 # Shortcuts
 # ----------------------------------------------------------------------------
-# CPACK_PACKAGE_EXECUTABLES (from CreateCPackCommon) adds the Start menu entry for bin/QGroundControl.exe.
+# CPACK_PACKAGE_EXECUTABLES (from CreateCPackCommon) adds the Start menu entry for bin/${CMAKE_PROJECT_NAME}.exe.
 set(CPACK_CREATE_DESKTOP_LINKS "${CMAKE_PROJECT_NAME}")
 
 include(CPack)

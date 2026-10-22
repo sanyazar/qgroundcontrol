@@ -17,8 +17,10 @@ set(QGC_CUSTOM_DIR
 # Application Metadata
 # ============================================================================
 
+# Bastion fork: every name differs from upstream QGroundControl (executable, install prefix,
+# package names, settings and data folders) so both can be installed side by side.
 set(QGC_APP_NAME
-    "QGroundControl"
+    "QGroundControl-Bastion"
     CACHE STRING "Application name"
 )
 string(TIMESTAMP _copyright_year "%Y")
@@ -31,7 +33,7 @@ set(QGC_APP_DESCRIPTION
     CACHE STRING "Application description"
 )
 set(QGC_ORG_NAME
-    "QGroundControl"
+    "QGroundControl-Bastion"
     CACHE STRING "Organization name"
 )
 set(QGC_ORG_DOMAIN
@@ -39,7 +41,7 @@ set(QGC_ORG_DOMAIN
     CACHE STRING "Organization domain"
 )
 set(QGC_PACKAGE_NAME
-    "org.mavlink.qgroundcontrol"
+    "org.mavlink.qgroundcontrol.bastion"
     CACHE STRING "Package identifier"
 )
 

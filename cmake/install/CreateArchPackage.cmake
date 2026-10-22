@@ -8,6 +8,7 @@
 # pkgver: strip the git-describe 'v' prefix and map '-' to '.' (makepkg forbids '-').
 string(REGEX REPLACE "^v" "" QGC_ARCH_PKGVER "${QGC_APP_VERSION_STR}")
 string(REPLACE "-" "." QGC_ARCH_PKGVER "${QGC_ARCH_PKGVER}")
+string(TOLOWER "${CMAKE_PROJECT_NAME}" QGC_ARCH_PKGNAME)
 
 # Single source of truth for the Arch runtime dep list (see PKGBUILD.in note):
 # the remaining system libraries QGC links against once Qt is bundled by the

@@ -52,10 +52,10 @@ def test_linux_native_generators_use_stable_identity_and_finalization() -> None:
     rpm = (CPACK_DIR / "CreateCPackRPM.cmake").read_text()
     arch = (REPO_ROOT / "cmake/install/CreateArchPackage.cmake").read_text()
 
-    assert 'set(CPACK_DEBIAN_PACKAGE_NAME "qgroundcontrol")' in deb
+    assert 'set(CPACK_DEBIAN_PACKAGE_NAME "${CPACK_QGC_NATIVE_PACKAGE_NAME}")' in deb
     assert 'set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")' in deb
     assert "FinalizeNativePackage.cmake" in deb
-    assert 'set(CPACK_RPM_PACKAGE_NAME "qgroundcontrol")' in rpm
+    assert 'set(CPACK_RPM_PACKAGE_NAME "${CPACK_QGC_NATIVE_PACKAGE_NAME}")' in rpm
     assert 'set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")' in rpm
     assert "FinalizeNativePackage.cmake" in rpm
     assert "makepkg -f --noconfirm --nodeps --skipinteg" in " ".join(arch.split())
