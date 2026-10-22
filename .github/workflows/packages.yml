@@ -1,8 +1,19 @@
 name: Bastion Packages
 
-# Builds the QGroundControl-Bastion installers: Ubuntu .deb (+ AppImage) in the Docker
-# builder image and the Windows .msi on a hosted Windows runner. Tags matching v* also
-# publish both as a GitHub release.
+# Builds the QGroundControl-Bastion packages: Ubuntu .deb (+ AppImage) and Android .apk in
+# the Docker builder images, and the Windows .msi on a Windows runner. Tags matching v*
+# also publish all of them as a GitHub release.
+#
+# Runners default to GitHub-hosted ones. To build on your own machines, register
+# self-hosted runners and set the repository variables (Settings > Secrets and variables >
+# Actions > Variables) to their label:
+#   BASTION_LINUX_RUNNER    e.g. bastion-linux   (Linux host with Docker; .deb and .apk)
+#   BASTION_WINDOWS_RUNNER  e.g. bastion-windows (Windows with MSVC Build Tools)
+# Self-hosted runners keep the build caches between runs. Never point pull_request
+# workflows at them: this repository is public.
+#
+# Android signing secrets (optional; without them a throwaway key is used):
+#   BASTION_ANDROID_KEYSTORE (base64 .jks), BASTION_ANDROID_KEYSTORE_PASSWORD, BASTION_ANDROID_KEY_ALIAS
 
 on:
   workflow_dispatch:
@@ -22,10 +33,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  UPSTREAM_REPO: https://github.com/mavlink/qgroundcontrol.git
+
 jobs:
   deb:
     name: Ubuntu .deb
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.BASTION_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 150
     defaults:
       run:
@@ -37,22 +51,25 @@ jobs:
           # Package versions come from git describe and need reachable tags.
           fetch-depth: 0
           persist-credentials: false
+          # Keep .ccache / .cache (CPM, moccache) between runs on self-hosted runners.
+          clean: ${{ runner.environment == 'github-hosted' }}
 
       # Forks start without tags, which leaves the package version at 0.0.0.
       - name: Fetch upstream version tags
-        run: git fetch --no-tags https://github.com/mavlink/qgroundcontrol.git "+refs/tags/v*:refs/tags/v*"
+        run: git fetch --no-tags "${UPSTREAM_REPO}" "+refs/tags/v*:refs/tags/v*"
 
       - name: Free Disk Space
+        if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk-space
 
       - name: Build in Docker
         env:
-          BUILD_DIR: ${{ runner.temp }}/build
+          BUILD_DIR: ${{ runner.temp }}/build-deb
         run: python3 deploy/docker/run_docker.py build ubuntu
 
       - name: Check package identity
         env:
-          BUILD_DIR: ${{ runner.temp }}/build
+          BUILD_DIR: ${{ runner.temp }}/build-deb
         run: |
           shopt -s nullglob
           debs=("${BUILD_DIR}"/*.deb)
@@ -73,15 +90,70 @@ jobs:
         with:
           name: qgroundcontrol-bastion-linux
           path: |
-            ${{ runner.temp }}/build/*.deb
-            ${{ runner.temp }}/build/*.deb.sha256
-            ${{ runner.temp }}/build/*.AppImage
+            ${{ runner.temp }}/build-deb/*.deb
+            ${{ runner.temp }}/build-deb/*.deb.sha256
+            ${{ runner.temp }}/build-deb/*.AppImage
+          if-no-files-found: error
+          retention-days: 30
+
+  apk:
+    name: Android .apk
+    runs-on: ${{ vars.BASTION_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          clean: ${{ runner.environment == 'github-hosted' }}
+
+      - name: Fetch upstream version tags
+        run: git fetch --no-tags "${UPSTREAM_REPO}" "+refs/tags/v*:refs/tags/v*"
+
+      - name: Free Disk Space
+        if: runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk-space
+
+      - name: Build in Docker
+        env:
+          BUILD_DIR: ${{ runner.temp }}/build-apk
+        run: python3 deploy/docker/run_docker.py build android
+
+      - name: Sign APK
+        env:
+          BUILD_DIR: ${{ runner.temp }}/build-apk
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.BASTION_ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.BASTION_ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.BASTION_ANDROID_KEY_ALIAS }}
+        run: |
+          shopt -s nullglob
+          apks=("${BUILD_DIR}"/android-build/*.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one APK in android-build, found ${#apks[@]}"
+            exit 1
+          fi
+          docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
+            --env ANDROID_KEYSTORE_BASE64 --env ANDROID_KEYSTORE_PASSWORD --env ANDROID_KEY_ALIAS \
+            -v "${PWD}:/project/source:ro" -v "${BUILD_DIR}:/project/build" \
+            --entrypoint /bin/bash qgc-android-docker -l \
+            /project/source/deploy/android/sign-apk.sh \
+            "/project/build/android-build/${apks[0]##*/}" /project/build/QGroundControl-Bastion.apk
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: qgroundcontrol-bastion-android
+          path: ${{ runner.temp }}/build-apk/QGroundControl-Bastion.apk
           if-no-files-found: error
           retention-days: 30
 
   msi:
     name: Windows .msi
-    runs-on: windows-2022
+    runs-on: ${{ vars.BASTION_WINDOWS_RUNNER || 'windows-2022' }}
     timeout-minutes: 150
     env:
       WIX_VERSION: '5.0.2'
@@ -92,9 +164,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Forks start without tags, which leaves the package version at 0.0.0.
       - name: Fetch upstream version tags
-        run: git fetch --no-tags https://github.com/mavlink/qgroundcontrol.git "+refs/tags/v*:refs/tags/v*"
+        run: git fetch --no-tags "$env:UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*"
 
       - name: Build Setup
         uses: ./.github/actions/build-setup
@@ -103,17 +174,24 @@ jobs:
           qt-arch: win64_msvc2022_64
           build-type: Release
 
+      # Idempotent so persistent self-hosted runners can reuse an existing installation.
       - name: Install WiX Toolset
         shell: pwsh
         run: |
-          dotnet tool install --global wix --version $env:WIX_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $tools = Join-Path $env:USERPROFILE '.dotnet\tools'
-          & (Join-Path $tools 'wix.exe') extension add -g "WixToolset.UI.wixext/$env:WIX_VERSION"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & (Join-Path $tools 'wix.exe') extension add -g "WixToolset.Util.wixext/$env:WIX_VERSION"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $tools | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          dotnet tool update --global wix --version $env:WIX_VERSION
+          if ($LASTEXITCODE -ne 0) {
+            dotnet tool install --global wix --version $env:WIX_VERSION
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $wix = Join-Path $env:USERPROFILE '.dotnet\tools\wix.exe'
+          foreach ($ext in 'WixToolset.UI.wixext', 'WixToolset.Util.wixext') {
+            & $wix extension add -g "$ext/$env:WIX_VERSION"
+            if ($LASTEXITCODE -ne 0 -and -not ((& $wix extension list -g) -match [regex]::Escape($ext))) {
+              Write-Error "Failed to add WiX extension $ext"
+              exit 1
+            }
+          }
+          Split-Path $wix | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Configure
         uses: ./.github/actions/cmake-configure
@@ -150,7 +228,7 @@ jobs:
   release:
     name: GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [deb, msi]
+    needs: [deb, apk, msi]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

@@ -5,7 +5,7 @@
 1. **Мультикамера** — одночасний показ кількох відеопотоків: кілька камер на одному дроні, кілька дронів, або все разом.
 2. **Пакування** — MSI-інсталятор для Windows і Docker-образ для його збірки; `.deb` для Ubuntu збирається наявним Linux-образом.
 3. **Назва QGroundControl-Bastion** — усі імена й шляхи відрізняються від оригіналу, тож обидві версії можна встановити одночасно.
-4. **GitHub Actions** — автоматична збірка `.deb` і `.msi`.
+4. **GitHub Actions** — автоматична збірка `.deb`, `.apk` і `.msi`, на серверах GitHub або на власних машинах.
 
 Документація для користувача англійською (як і решта документації QGC): [Multiple Cameras](docs/en/qgc-user-guide/fly_view/multi_camera.md), розділ **Multiple Cameras** у [Video settings](docs/en/qgc-user-guide/settings_view/video.md), збірка пакетів — [Building using Containers](docs/en/qgc-dev-guide/getting_started/container.md#native-packages-deb-and-msi).
 
@@ -17,6 +17,8 @@
 | `build(Windows): add MSI packaging and Windows Docker builder` | CPack WIX, пресет `Windows-msi`, `Dockerfile.windows`, тест пакування |
 | `docs: document multi-camera mode and fork changes` | Документація |
 | `build: rename to QGroundControl-Bastion and add package workflow` | Перейменування, `packages.yml` |
+| `ci(packages): fetch upstream version tags before packaging` | Виправлення версії `0.0.0` у CI |
+| `ci(packages): add Android APK and self-hosted runner support` | `.apk`, підпис, вибір раннера |
 
 ## 1. Мультикамера
 
@@ -132,9 +134,10 @@ cmake --build --preset Windows-msi --target qgc-package
 
 `.github/workflows/packages.yml` (**Bastion Packages**):
 
-- **Ubuntu .deb** — збирає Docker-образом `ubuntu`, перевіряє, що пакет називається `qgroundcontrol-bastion`; артефакт `qgroundcontrol-bastion-linux` (`.deb`, `.sha256`, AppImage);
-- **Windows .msi** — `windows-2022`, Qt MSVC, GStreamer, WiX 5, пресет `Windows-msi`; артефакт `qgroundcontrol-bastion-windows`;
-- **GitHub release** — для тегів `vX.Y.Z…` публікує обидва пакети як реліз.
+- **Ubuntu .deb** — Docker-образ `ubuntu`, перевіряє, що пакет називається `qgroundcontrol-bastion`; артефакт `qgroundcontrol-bastion-linux` (`.deb`, `.sha256`, AppImage);
+- **Android .apk** — Docker-образ `android`, потім `deploy/android/sign-apk.sh` вирівнює й підписує APK; артефакт `qgroundcontrol-bastion-android` (`QGroundControl-Bastion.apk`, пакет `org.mavlink.qgroundcontrol.bastion`);
+- **Windows .msi** — Qt MSVC, GStreamer, WiX 5, пресет `Windows-msi`; артефакт `qgroundcontrol-bastion-windows`;
+- **GitHub release** — для тегів `vX.Y.Z…` публікує всі пакети як реліз.
 
 Запускається: кнопкою **Run workflow** на вкладці Actions, пушем у `feat/multi-camera` (крім змін лише в документації) і тегом:
 
@@ -144,6 +147,45 @@ git tag v5.2.1 && git push fork v5.2.1
 
 Артефакти зберігаються 30 днів: Actions → запуск → **Artifacts**.
 Workflow офіційного QGC у форку запускаються лише для `master`, тегів `vX.Y.Z` і pull request'ів, тож пуші у `feat/multi-camera` їх не чіпають.
+Форк створюється без тегів, тому workflow підтягує теги `v*` з `mavlink/qgroundcontrol` — інакше версія пакета була б `0.0.0` і пакування б відмовило.
+
+### Підпис Android
+
+Без налаштувань APK підписується одноразовим ключем: він встановлюється, але наступна збірка (з іншим ключем) не оновить його поверх — доведеться видаляти. Для постійного ключа:
+
+```bash
+keytool -genkeypair -keystore bastion.jks -alias bastion -keyalg RSA -keysize 3072 -validity 10000
+base64 -w0 bastion.jks   # вміст -> секрет BASTION_ANDROID_KEYSTORE
+```
+
+Секрети репозиторію (**Settings → Secrets and variables → Actions → Secrets**): `BASTION_ANDROID_KEYSTORE`, `BASTION_ANDROID_KEYSTORE_PASSWORD`, `BASTION_ANDROID_KEY_ALIAS` (`bastion`). Сам `bastion.jks` зберігайте поза репозиторієм: без нього оновлення встановлених APK неможливі.
+
+## 5. Збірка на власних машинах (self-hosted runners)
+
+За замовчуванням збирають сервери GitHub. Щоб збирати на своєму ноутбуці, зареєструйте раннери й задайте змінні репозиторію (**Settings → Secrets and variables → Actions → Variables**):
+
+| Змінна | Значення | Що збирає | Де |
+| ------ | -------- | --------- | -- |
+| `BASTION_LINUX_RUNNER` | `bastion-linux` | `.deb`, AppImage, `.apk` | Ubuntu з Docker |
+| `BASTION_WINDOWS_RUNNER` | `bastion-windows` | `.msi` | Windows (VM) |
+
+Видаліть змінну — збірка повернеться на сервери GitHub. На self-hosted раннерах кроки звільнення диска пропускаються, а кеші (`.ccache`, `.cache/CPM`, Docker-образи) зберігаються між запусками, тож повторні збірки йдуть за хвилини.
+
+**Linux-раннер (без VM, прямо на Ubuntu):**
+
+1. GitHub → **Settings → Actions → Runners → New self-hosted runner → Linux x64** — виконати показані команди від окремого користувача, до `./config.sh` додати `--labels bastion-linux`.
+2. `sudo usermod -aG docker <користувач-раннера>`
+3. `sudo ./svc.sh install <користувач-раннера> && sudo ./svc.sh start`
+
+**Windows-раннер (VM на KVM):**
+
+1. `sudo apt install qemu-kvm libvirt-daemon-system virt-manager` і `sudo usermod -aG libvirt,kvm $USER`.
+2. ISO: Windows Server 2022 Evaluation (180 днів) або Windows 11 + драйвери virtio-win.
+3. virt-manager: 6 vCPU, 10–12 ГБ RAM, диск 150 ГБ (qcow2, virtio), CPU `host-passthrough`.
+4. У VM встановити Git, Python 3.12, .NET SDK 8 і Visual Studio 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону форку). Qt, CMake і WiX workflow ставить сам.
+5. Раннер: **New self-hosted runner → Windows x64**, `--labels bastion-windows`, встановити як службу.
+
+**Безпека:** репозиторій публічний — ніколи не направляйте на self-hosted раннери workflow з подією `pull_request`, бо чужий PR виконає код на вашій машині. `packages.yml` запускається лише вашими пушами, тегами й вручну. Додатково: **Settings → Actions → General → Require approval for all external contributors**.
 
 ## Перевірка
 
