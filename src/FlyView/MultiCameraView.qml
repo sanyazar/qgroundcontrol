@@ -98,9 +98,10 @@ Item {
                 }
             }
 
+            // Camera name in the bottom right corner of both the main video and the thumbnails.
             Rectangle {
                 id:                     labelBackground
-                anchors.left:           parent.left
+                anchors.right:          parent.right
                 anchors.bottom:         parent.bottom
                 anchors.margins:        tile.isMain ? root._margin : 0
                 width:                  labelRow.width + root._margin
@@ -124,6 +125,10 @@ Item {
                     }
 
                     QGCLabel {
+                        // Leave room for the record/photo buttons on the left of the tile.
+                        width:          Math.min(implicitWidth,
+                                                 tile.width - (controlsRow.visible ? controlsRow.width : 0) - root._margin * 4)
+                        elide:          Text.ElideRight
                         text:           tile.stream ? tile.stream.label : ""
                         color:          "white"
                         font.pointSize: tile.isMain ? ScreenTools.defaultFontPointSize : ScreenTools.smallFontPointSize
@@ -132,7 +137,8 @@ Item {
             }
 
             Row {
-                anchors.right:      parent.right
+                id:                 controlsRow
+                anchors.left:       parent.left
                 anchors.bottom:     parent.bottom
                 anchors.margins:    tile.isMain ? root._margin : root._margin / 2
                 spacing:            root._margin / 2

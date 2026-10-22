@@ -55,7 +55,7 @@
         },
         {
             "component": "MultiCameraSettings",
-            "sectionName": "Manual Camera Streams",
+            "sectionName": "Other Camera Streams",
             "keywords": ["multi camera", "rtsp", "udp", "stream url", "vehicle id"],
             "showWhen": "QGroundControl.settingsManager.videoSettings.multiCameraEnabled.rawValue"
         },

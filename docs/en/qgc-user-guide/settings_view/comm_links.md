@@ -26,3 +26,9 @@ Manually create and manage communication links when auto-connect is insufficient
 - **High Latency** — mark the link as high-latency (reduces message rate)
 
 Existing links can be edited, deleted, connected, or disconnected from the link list.
+
+### Cameras
+
+Below the link settings, the **Cameras** section lists the cameras of the vehicle on this link.
+Press **Add Camera** for each camera and fill in its group: **Name** (shown in the bottom right corner of the video), **Camera type** (**Dahua**, **Hikvision**, **Uniview (UNV)** or **Custom URL**) and either the camera address, RTSP port, login, password, channel and main/sub stream, or the stream URL.
+The cameras are shown in the Fly View while the link is connected and [multi-camera mode](../fly_view/multi_camera.md) is on.

@@ -10,6 +10,9 @@
 #include <QtCore/QUrl>
 
 #include "Fact.h"
+#include "LinkConfiguration.h"
+#include "LinkInterface.h"
+#include "LinkManager.h"
 #include "MavlinkCameraControlInterface.h"
 #include "MultiCameraStream.h"
 #include "MultiVehicleManager.h"
@@ -19,6 +22,7 @@
 #include "QGCVideoStreamInfo.h"
 #include "SettingsManager.h"
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
 #include "VideoSettings.h"
 
 QGC_LOGGING_CATEGORY(MultiCameraManagerLog, "Video.MultiCameraManager")
@@ -43,6 +47,26 @@ QString presetPath(const QString& type, int channel, bool subStream, QString* qu
         return QStringLiteral("/unicast/c%1/s%2/live").arg(channel).arg(subStream ? 1 : 0);
     }
     return QString();
+}
+
+QJsonArray parseStreamEntries(const QString& json, const char* source)
+{
+    if (json.trimmed().isEmpty()) {
+        return QJsonArray();
+    }
+    QJsonParseError error{};
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8(), &error);
+    if (!doc.isArray()) {
+        qCWarning(MultiCameraManagerLog) << source << "camera list is not a JSON array:" << error.errorString();
+        return QJsonArray();
+    }
+    return doc.array();
+}
+
+// The URI may carry camera credentials and keys end up in logs and receiver names, so keys use a hash of it.
+QString uriHash(const QString& uri)
+{
+    return QString::fromLatin1(QCryptographicHash::hash(uri.toUtf8(), QCryptographicHash::Sha256).toHex().left(12));
 }
 
 QUrl manualStreamUrl(const QJsonObject& entry)
@@ -278,19 +302,70 @@ void MultiCameraManager::_vehicleAdded(Vehicle* vehicle)
     _scheduleRebuild();
 }
 
-void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
+void MultiCameraManager::_appendLinkStreams(QList<StreamSpec>& specs)
 {
-    const QByteArray json = _videoSettings->multiCameraStreams()->rawValue().toString().toUtf8();
-    QJsonParseError error{};
-    const QJsonDocument doc = QJsonDocument::fromJson(json, &error);
-    if (!doc.isArray()) {
-        if (!json.trimmed().isEmpty()) {
-            qCWarning(MultiCameraManagerLog) << "multiCameraStreams is not a JSON array:" << error.errorString();
-        }
+    auto* const configs = LinkManager::instance()->property("linkConfigurations").value<QmlObjectListModel*>();
+    if (!configs) {
         return;
     }
+    (void) connect(configs, &QmlObjectListModel::countChanged, this, &MultiCameraManager::_scheduleRebuild,
+                   Qt::UniqueConnection);
 
-    const QJsonArray entries = doc.array();
+    QmlObjectListModel* const vehicles = MultiVehicleManager::instance()->vehicles();
+    for (int configIndex = 0; configIndex < configs->count(); configIndex++) {
+        auto* const config = configs->value<LinkConfiguration*>(configIndex);
+        if (!config) {
+            continue;
+        }
+        (void) connect(config, &LinkConfiguration::camerasChanged, this, &MultiCameraManager::_scheduleRebuild,
+                       Qt::UniqueConnection);
+        (void) connect(config, &LinkConfiguration::linkChanged, this, &MultiCameraManager::_scheduleRebuild,
+                       Qt::UniqueConnection);
+        (void) connect(config, &LinkConfiguration::linkActiveChanged, this, &MultiCameraManager::_scheduleRebuild,
+                       Qt::UniqueConnection);
+
+        // A link's cameras belong to the vehicle behind it, so they are shown only while it is connected.
+        LinkInterface* const link = config->link();
+        if (!link) {
+            continue;
+        }
+
+        int vehicleId = 0;
+        for (int vehicleIndex = 0; vehicleIndex < vehicles->count(); vehicleIndex++) {
+            Vehicle* const vehicle = vehicles->value<Vehicle*>(vehicleIndex);
+            if (vehicle && vehicle->vehicleLinkManager() && vehicle->vehicleLinkManager()->containsLink(link)) {
+                vehicleId = static_cast<int>(vehicle->id());
+                break;
+            }
+        }
+
+        const QJsonArray entries = parseStreamEntries(config->cameras(), "Link");
+        for (qsizetype entryIndex = 0; entryIndex < entries.count(); entryIndex++) {
+            const QJsonObject entry = entries.at(entryIndex).toObject();
+            const QString uri = manualStreamUri(entry);
+            if (uri.isEmpty()) {
+                continue;
+            }
+
+            QString name = entry.value(QStringLiteral("name")).toString().trimmed();
+            if (name.isEmpty()) {
+                name = tr("%1 camera %2").arg(config->name()).arg(entryIndex + 1);
+            }
+
+            StreamSpec spec;
+            spec.key = QStringLiteral("link:%1:%2").arg(uriHash(config->name()), uriHash(uri));
+            spec.label = name;
+            spec.uri = uri;
+            spec.vehicleId = vehicleId;
+            specs.append(spec);
+        }
+    }
+}
+
+void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
+{
+    const QJsonArray entries =
+        parseStreamEntries(_videoSettings->multiCameraStreams()->rawValue().toString(), "multiCameraStreams");
     for (const QJsonValue& value : entries) {
         const QJsonObject entry = value.toObject();
         const QString uri = manualStreamUri(entry);
@@ -305,9 +380,7 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         }
 
         StreamSpec spec;
-        // The URI may carry camera credentials; the key ends up in logs and receiver names, so hash it.
-        const QByteArray uriHash = QCryptographicHash::hash(uri.toUtf8(), QCryptographicHash::Sha256).toHex().left(12);
-        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(QString::fromLatin1(uriHash));
+        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(uriHash(uri));
         spec.label = (vehicleId > 0) ? tr("Vehicle %1 · %2").arg(vehicleId).arg(name) : name;
         spec.uri = uri;
         spec.vehicleId = vehicleId;
@@ -369,6 +442,7 @@ void MultiCameraManager::_appendMavlinkStreams(QList<StreamSpec>& specs)
 QList<MultiCameraManager::StreamSpec> MultiCameraManager::_collectStreams()
 {
     QList<StreamSpec> candidates;
+    _appendLinkStreams(candidates);
     _appendManualStreams(candidates);
     _appendMavlinkStreams(candidates);
 

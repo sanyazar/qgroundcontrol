@@ -15,4 +15,5 @@ private slots:
     void _testCameraPresetUris_data();
     void _testCameraPresetUris();
     void _testPresetCredentialsStayOutOfKeys();
+    void _testLinkCamerasCopied();
 };

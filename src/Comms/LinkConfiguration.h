@@ -26,6 +26,7 @@ class LinkConfiguration : public QObject
     Q_PROPERTY(QString          settingsURL     READ settingsURL                            CONSTANT)
     Q_PROPERTY(QString          settingsTitle   READ settingsTitle                          CONSTANT)
     Q_PROPERTY(bool             highLatency     READ isHighLatency  WRITE setHighLatency    NOTIFY highLatencyChanged)
+    Q_PROPERTY(QString          cameras         READ cameras        WRITE setCameras        NOTIFY camerasChanged)
 
 public:
     LinkConfiguration(const QString &name, QObject *parent = nullptr);
@@ -96,6 +97,11 @@ public:
     /// Set if this is this an High Latency configuration.
     void setHighLatency(bool hl = false);
 
+    /// Cameras of the vehicle on this link, as a JSON array of MultiCameraManager stream entries.
+    /// Shown in multi-camera mode while the link is connected.
+    QString cameras() const { return _cameras; }
+    void setCameras(const QString &cameras);
+
     /// Copy instance data, When manipulating data, you create a copy of the configuration using the copy constructor,
     /// edit it and then transfer its content to the original using this method.
     ///     @param[in] source The source instance (the edited copy)
@@ -157,6 +163,7 @@ signals:
     void dynamicChanged();
     void autoConnectChanged();
     void highLatencyChanged();
+    void camerasChanged();
 
 protected:
     std::weak_ptr<LinkInterface> _link; ///< Link currently using this configuration (if any)
@@ -167,6 +174,7 @@ private:
     bool _forwarding = false;  ///< Automatically added Mavlink forwarding connection
     bool _autoConnect = false; ///< This connection is started automatically at boot
     bool _highLatency = false;
+    QString _cameras;
     bool _suppressAutoReconnect = false; ///< User disconnected; skip auto-reconnect until manually reconnected (runtime only)
     bool _autoConnectStarted = false;    ///< Link was started at boot or manually connected; gates timer reconnect (runtime only)
     int _reconnectAttempts = 0;          ///< Consecutive failed auto-reconnect attempts (runtime only)

@@ -82,6 +82,7 @@ private:
     };
 
     QList<StreamSpec> _collectStreams();
+    void _appendLinkStreams(QList<StreamSpec>& specs);
     void _appendManualStreams(QList<StreamSpec>& specs) const;
     void _appendMavlinkStreams(QList<StreamSpec>& specs);
     void _rebuild();

@@ -28,6 +28,7 @@ LinkConfiguration::LinkConfiguration(const LinkConfiguration* copy, QObject* par
     , _forwarding(copy->isForwarding())
     , _autoConnect(copy->isAutoConnect())
     , _highLatency(copy->isHighLatency())
+    , _cameras(copy->cameras())
 {
     qCDebug(LinkConfigurationLog) << this;
 
@@ -54,6 +55,15 @@ void LinkConfiguration::copyFrom(const LinkConfiguration *source)
     setAutoConnect(source->isAutoConnect());
     setHighLatency(source->isHighLatency());
     setForwarding(source->isForwarding());
+    setCameras(source->cameras());
+}
+
+void LinkConfiguration::setCameras(const QString &cameras)
+{
+    if (cameras != _cameras) {
+        _cameras = cameras;
+        emit camerasChanged();
+    }
 }
 
 LinkConfiguration *LinkConfiguration::createSettings(int type, const QString &name)

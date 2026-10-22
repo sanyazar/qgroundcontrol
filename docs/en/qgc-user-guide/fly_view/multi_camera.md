@@ -15,24 +15,34 @@ Every stream is decoded separately, so raise the limit only if the ground statio
 
 ## Where Streams Come From
 
-_QGroundControl_ combines two sources:
+_QGroundControl_ combines three sources:
 
-1. **Manual camera streams** — a list you enter in **Application Settings > Video > Manual Camera Streams**.
-   Use it for cameras that do not implement the MAVLink camera protocol, or for video that reaches the ground station over a separate link.
-2. **MAVLink cameras** — every stream reported with [VIDEO_STREAM_INFORMATION](https://mavlink.io/en/messages/common.html#VIDEO_STREAM_INFORMATION) by any camera on any connected vehicle, including thermal streams.
+1. **Comm link cameras** — cameras added to a vehicle's comm link in **Application Settings > Comm Links** (see [Cameras of a Comm Link](#cameras-of-a-comm-link)).
+   They are shown while that link is connected. This is the recommended way to set up the cameras of each vehicle.
+2. **Other camera streams** — a list you enter in **Application Settings > Video > Other Camera Streams**, for cameras that are not tied to a comm link.
+3. **MAVLink cameras** — every stream reported with [VIDEO_STREAM_INFORMATION](https://mavlink.io/en/messages/common.html#VIDEO_STREAM_INFORMATION) by any camera on any connected vehicle, including thermal streams.
    _QGroundControl_ requests streaming from each of these cameras (`MAV_CMD_VIDEO_START_STREAMING`) when the stream first appears.
 
-Manual streams are taken first, then MAVLink streams, until **Maximum streams** is reached.
-If a MAVLink stream has the same URL as a manual one it is skipped, because two receivers cannot share one UDP port or RTSP session.
+Comm link cameras are taken first, then other camera streams, then MAVLink streams, until **Maximum streams** is reached.
+If a stream has the same URL as one taken earlier it is skipped, because two receivers cannot share one UDP port or RTSP session.
 Streams are added and removed automatically as vehicles connect and disconnect.
 
-### Manual Camera Streams
+### Cameras of a Comm Link
 
-Each row of the list describes one stream:
+Open **Application Settings > Comm Links**, edit the vehicle's link (or add a new one) and, below the link settings, press **Add Camera** in the **Cameras** section for each camera of that vehicle.
+All settings of one camera are grouped in one box; the fields are the same as for [Other Camera Streams](#other-camera-streams) except that no Vehicle ID is needed.
+The **Name** you give a camera is shown in the bottom right corner of its video, both in the main view and in the thumbnails.
+
+The cameras are saved with the link and shown while the link is connected.
+If multi-camera mode is still off, the **Show cameras in the Fly View** switch below the camera list turns it on.
+
+### Other Camera Streams
+
+Each entry of the list describes one stream:
 
 - **Vehicle ID** — MAVLink system ID of the vehicle the camera is on (shown in the stream label).
   Use `0` for a stream that is not tied to a vehicle.
-- **Name** — label shown on the video tile, for example `Front` or `Thermal`.
+- **Name** — label shown in the bottom right corner of the video, for example `Front` or `Thermal`.
 - **Camera type** — **Dahua**, **Hikvision** or **Uniview (UNV)** to build the stream URL for you (see [Camera Presets](#camera-presets)), or **Custom URL** to enter it yourself.
 - **Stream URL** (Custom URL only) — one of:
 
@@ -82,9 +92,10 @@ Use a dedicated camera account with view-only rights.
 
 - **Switch the main stream** — click a thumbnail. Streams keep running while you switch, so there is no reconnect delay.
 - **Full screen** — double-click the main stream (requires a connected vehicle).
-- **Record** — press the red circle on a tile to start recording that stream; it turns into a square while recording, and a red dot appears next to the stream name.
+- **Camera name** — shown in the bottom right corner of every tile.
+- **Record** — press the red circle in the bottom left corner of a tile to start recording that stream; it turns into a square while recording, and a red dot appears next to the stream name.
   Each stream records into its own file.
-- **Photo** — press the camera icon on a tile to save the current frame of that stream.
+- **Photo** — press the camera icon next to it to save the current frame of that stream.
 
 The record and photo buttons are shown on a tile once its video is decoding.
 A tile shows **WAITING FOR VIDEO** until the first frame arrives, and the view shows **NO CAMERA STREAMS** when no stream is configured or discovered.

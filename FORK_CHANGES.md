@@ -21,27 +21,33 @@
 | `ci(packages): add Android APK and self-hosted runner support` | `.apk`, підпис, вибір раннера |
 | `ci(packages): build a .deb for each supported Ubuntu release` | `.deb` для 22.04 / 24.04 / 26.04 |
 | `feat(Video): add Dahua, Hikvision and Uniview camera presets` | Пресети камер |
+| `ci(packages): check Docker access on self-hosted runners` | Зрозуміла помилка, якщо раннер не має доступу до Docker |
+| `feat(Comms): configure cameras per comm link` | Камери в діалозі comm link, назва в правому нижньому куті |
 
 ## 1. Мультикамера
 
 ### Як користуватися
 
-1. **Налаштування → Video → Multiple camera streams** — увімкнути.
+1. **Налаштування → Video → Multiple camera streams** — увімкнути (або перемикачем **Show cameras in the Fly View** у діалозі comm link).
 2. **Maximum streams** — скільки потоків декодувати одночасно (за замовчуванням 4, від 1 до 9).
-3. **Manual Camera Streams** — додати потоки вручну (**Add Stream**), по картці на камеру:
-   - **Vehicle ID** — MAVLink SYSID дрона (`0` — не прив'язаний до дрона);
-   - **Name** — підпис на плитці, напр. `Front`, `Thermal`;
+3. **Камери дрона — у його comm link** (основний спосіб): **Налаштування → Comm Links → Edit** (або **Add New Link**) → під налаштуваннями зв'язку розділ **Cameras** → **Add Camera** для кожної камери. Усі налаштування камери згруповані в одній картці. Камери зберігаються разом з link і показуються, поки link підключено.
+4. **Other Camera Streams** (Налаштування → Video) — камери, не прив'язані до comm link; ті самі поля плюс **Vehicle ID**.
+
+Поля камери (однакові в обох місцях):
+   - **Vehicle ID** — лише в Other Camera Streams: MAVLink SYSID дрона (`0` — не прив'язаний до дрона);
+   - **Name** — назва, що показується в правому нижньому куті відео (і в мініатюрі, і в головному), напр. `Front`, `Thermal`;
    - **Camera type** — **Dahua**, **Hikvision**, **Uniview (UNV)** або **Custom URL**;
    - для **Custom URL**: **Stream URL** — `rtsp://…`, `udp://0.0.0.0:5600`, `udp265://…`, `mpegts://…`, `tcp://…`;
    - для пресетів: **Camera address** (IP), **RTSP port** (за замовчуванням `554`), **Login** (`admin`), **Password**, **Channel** (`1`, на NVR — номер камери), **Stream** (Main — повна якість, Sub — легший потік). URL будується сам і показується під полями з прихованим паролем.
-4. Камери, які підтримують MAVLink camera protocol, з'являються самі — з усіх підключених дронів.
+5. Камери, які підтримують MAVLink camera protocol, з'являються самі — з усіх підключених дронів.
 
 У Fly View:
 
 - велике відео — головний потік, угорі по центру — мініатюри решти;
 - **клік по мініатюрі** — зробити її головною (потоки не перезапускаються);
 - **подвійний клік по головному** — повний екран;
-- **червоне коло** на плитці — запис цього потоку (окремий файл), **іконка камери** — фото з кадру;
+- назва камери — у правому нижньому куті кожної плитки;
+- **червоне коло** в лівому нижньому куті плитки — запис цього потоку (окремий файл), **іконка камери** поруч — фото з кадру;
 - червона крапка біля назви — потік зараз пишеться.
 
 Файли: `<папка відео>/2026-10-22_20.15.03.Vehicle_1_Front.mkv`, `<папка фото>/2026-10-22_20.15.07.512.Vehicle_2_Down.jpg`.
@@ -76,12 +82,15 @@
 
 | Файл | Роль |
 | ---- | ---- |
-| `src/VideoManager/MultiCameraManager.{h,cc}` | Збирає список потоків (ручні з налаштувань + `VIDEO_STREAM_INFORMATION` усіх камер усіх дронів), ліміт, дедуплікація, вибір головного. Доступний у QML як `QGroundControl.videoManager.multiCamera` |
+| `src/VideoManager/MultiCameraManager.{h,cc}` | Збирає список потоків (камери підключених comm link → інші ручні потоки → `VIDEO_STREAM_INFORMATION` усіх камер усіх дронів), ліміт, дедуплікація, вибір головного. Доступний у QML як `QGroundControl.videoManager.multiCamera` |
 | `src/VideoManager/MultiCameraStream.{h,cc}` | Один потік: власний `VideoReceiver` + sink, прив'язаний до свого `VideoOutput`; старт/рестарт, запис, фото |
 | `src/VideoManager/VideoManager.{h,cc}` | Створює менеджер, передає йому готовність GStreamer, у мультирежимі не запускає свої одиночні приймачі й не зупиняє потік попереднього активного дрона |
 | `src/FlyView/MultiCameraView.qml` | Головне відео + мініатюри, кнопки запису/фото |
 | `src/FlyView/FlyViewVideo.qml`, `FlyView.qml` | Перемикання між звичайним відео й мультикамерою, PiP |
-| `src/AppSettings/MultiCameraSettings.qml`, `pages/Video.SettingsUI.json` | Сторінка налаштувань і редактор ручних потоків |
+| `src/AppSettings/CameraStreamsEditor.qml` | Редактор списку камер (картка на камеру, пресети); використовується в діалозі comm link і в налаштуваннях Video |
+| `src/AppSettings/LinkConfigurationManager.qml` | Розділ **Cameras** у діалозі comm link |
+| `src/Comms/LinkConfiguration.{h,cc}`, `LinkManager.cc` | Властивість `cameras` (JSON) у кожного link, копіювання при редагуванні, збереження в `LinkConfigurations/LinkN/cameras` |
+| `src/AppSettings/MultiCameraSettings.qml`, `pages/Video.SettingsUI.json` | Сторінка Video: Other Camera Streams |
 | `src/Settings/Video.SettingsGroup.json`, `VideoSettings.{h,cc}` | Факти `multiCameraEnabled`, `multiCameraMaxStreams`, `multiCameraStreams` (JSON) |
 | `test/VideoManager/MultiCameraManagerTest.{h,cc}` | Перетворення MAVLink URI, ручні потоки, ліміт, дедуплікація, головний потік |
 

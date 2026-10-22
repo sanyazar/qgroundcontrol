@@ -166,7 +166,9 @@ QGCGroupBox {
                     onActivated: (index) => {
                         if (index !== editingConfig.linkType) {
                             var name = nameField.text
+                            var cameras = editingConfig.cameras
                             editingConfig = _linkManager.createConfiguration(index, name)
+                            editingConfig.cameras = cameras
                         }
                     }
                 }
@@ -187,6 +189,36 @@ QGCGroupBox {
                             console.warn("Failed to load link settings page:", source)
                         }
                     }
+                }
+
+                SectionHeader {
+                    Layout.fillWidth:   true
+                    text:               qsTr("Cameras")
+                }
+
+                QGCLabel {
+                    Layout.fillWidth:       true
+                    Layout.maximumWidth:    ScreenTools.defaultFontPixelWidth * 70
+                    wrapMode:               Text.WordWrap
+                    font.pointSize:         ScreenTools.smallFontPointSize
+                    text:                   qsTr("Cameras of the vehicle on this link. They are shown in the Fly View while the link is connected, "
+                                                 + "with the camera name in the corner of the video.")
+                }
+
+                CameraStreamsEditor {
+                    Layout.fillWidth:       true
+                    Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 70
+                    streamsJson:        editingConfig ? editingConfig.cameras : "[]"
+                    showVehicleId:      false
+                    addButtonText:      qsTr("Add Camera")
+                    onEdited:           (json) => editingConfig.cameras = json
+                }
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth:   true
+                    text:               qsTr("Show cameras in the Fly View (multiple camera streams)")
+                    fact:               QGroundControl.settingsManager.videoSettings.multiCameraEnabled
+                    visible:            editingConfig && editingConfig.cameras !== "" && editingConfig.cameras !== "[]"
                 }
             }
         }

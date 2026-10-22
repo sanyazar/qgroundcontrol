@@ -387,6 +387,7 @@ void LinkManager::saveLinkConfigurationList()
         settings.setValue(root + "/type", linkConfig->type());
         settings.setValue(root + "/auto", linkConfig->isAutoConnect());
         settings.setValue(root + "/high_latency", linkConfig->isHighLatency());
+        settings.setValue(root + "/cameras", linkConfig->cameras());
         linkConfig->saveSettings(settings, root);
     }
 
@@ -459,6 +460,7 @@ void LinkManager::loadLinkConfigurationList()
                 link->setAutoConnect(autoConnect);
                 const bool highLatency = settings.value(root + "/high_latency").toBool();
                 link->setHighLatency(highLatency);
+                link->setCameras(settings.value(root + "/cameras").toString());
                 link->loadSettings(settings, root);
                 addConfiguration(link);
             }

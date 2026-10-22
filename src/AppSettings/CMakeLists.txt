@@ -121,6 +121,7 @@ qt_add_qml_module(
               # Hand-coded pages and components
               AppLogging.qml
               BluetoothSettings.qml
+              CameraStreamsEditor.qml
               DebugWindow.qml
               HelpSettings.qml
               LinkConfigurationManager.qml

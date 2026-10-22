@@ -1,16 +1,19 @@
 #include "MultiCameraManagerTest.h"
 
 #include <cstring>
+#include <memory>
 
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QRegularExpression>
+#include <QtTest/QSignalSpy>
 
 #include "Fact.h"
 #include "MultiCameraManager.h"
 #include "MultiCameraStream.h"
 #include "QGCVideoStreamInfo.h"
 #include "SettingsManager.h"
+#include "UDPLink.h"
 #include "VideoSettings.h"
 
 namespace {
@@ -174,6 +177,27 @@ void MultiCameraManagerTest::_testPresetCredentialsStayOutOfKeys()
     QVERIFY(stream->uri().contains(QStringLiteral("TopSecret1")));
     QVERIFY(!stream->key().contains(QStringLiteral("TopSecret1")));
     QVERIFY(!stream->label().contains(QStringLiteral("TopSecret1")));
+}
+
+void MultiCameraManagerTest::_testLinkCamerasCopied()
+{
+    const QString cameras = QStringLiteral(R"([{"name":"Front","type":"unv","host":"10.1.1.5"}])");
+
+    UDPConfiguration original(QStringLiteral("Drone 1"));
+    QSignalSpy camerasSpy(&original, &LinkConfiguration::camerasChanged);
+    original.setCameras(cameras);
+    QCOMPARE(camerasSpy.count(), 1);
+    original.setCameras(cameras);
+    QCOMPARE(camerasSpy.count(), 1);
+
+    // The link dialog edits a duplicate and copies it back on Save.
+    const std::unique_ptr<LinkConfiguration> edited(LinkConfiguration::duplicateSettings(&original));
+    QVERIFY(edited);
+    QCOMPARE(edited->cameras(), cameras);
+
+    UDPConfiguration target(QStringLiteral("Drone 1"));
+    target.copyFrom(edited.get());
+    QCOMPARE(target.cameras(), cameras);
 }
 
 UT_REGISTER_TEST(MultiCameraManagerTest, TestLabel::Unit)
