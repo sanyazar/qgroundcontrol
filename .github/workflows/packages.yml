@@ -82,7 +82,12 @@ jobs:
             echo "::error::unexpected package name '${name}'"
             exit 1
           fi
-          dpkg-deb --contents "${debs[0]}" | grep -q './usr/bin/QGroundControl-Bastion ->'
+          # Read the listing first: grep -q closing the pipe early makes dpkg-deb fail with SIGPIPE.
+          contents=$(dpkg-deb --contents "${debs[0]}")
+          if ! grep -qF './usr/bin/QGroundControl-Bastion ->' <<< "${contents}"; then
+            echo "::error::launcher /usr/bin/QGroundControl-Bastion is missing"
+            exit 1
+          fi
           echo "Built ${debs[0]##*/}"
 
       - name: Upload
