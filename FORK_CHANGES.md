@@ -182,7 +182,7 @@ base64 -w0 bastion.jks   # вміст -> секрет BASTION_ANDROID_KEYSTORE
 1. `sudo apt install qemu-kvm libvirt-daemon-system virt-manager` і `sudo usermod -aG libvirt,kvm $USER`.
 2. ISO: Windows Server 2022 Evaluation (180 днів) або Windows 11 + драйвери virtio-win.
 3. virt-manager: 6 vCPU, 10–12 ГБ RAM, диск 150 ГБ (qcow2, virtio), CPU `host-passthrough`.
-4. У VM встановити Git, Python 3.12, .NET SDK 8 і Visual Studio 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону форку). Qt, CMake і WiX workflow ставить сам.
+4. У VM встановити Git, Python 3.12, [uv](https://docs.astral.sh/uv/) (`winget install --id astral-sh.uv -e`), .NET SDK 8 і Visual Studio 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону форку). Qt, CMake і WiX workflow ставить сам.
 5. Раннер: **New self-hosted runner → Windows x64**, `--labels bastion-windows`, встановити як службу.
 
 **Безпека:** репозиторій публічний — ніколи не направляйте на self-hosted раннери workflow з подією `pull_request`, бо чужий PR виконає код на вашій машині. `packages.yml` запускається лише вашими пушами, тегами й вручну. Додатково: **Settings → Actions → General → Require approval for all external contributors**.
