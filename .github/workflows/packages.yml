@@ -38,6 +38,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Forks start without tags, which leaves the package version at 0.0.0.
+      - name: Fetch upstream version tags
+        run: git fetch --no-tags https://github.com/mavlink/qgroundcontrol.git "+refs/tags/v*:refs/tags/v*"
+
       - name: Free Disk Space
         uses: ./.github/actions/free-disk-space
 
@@ -87,6 +91,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      # Forks start without tags, which leaves the package version at 0.0.0.
+      - name: Fetch upstream version tags
+        run: git fetch --no-tags https://github.com/mavlink/qgroundcontrol.git "+refs/tags/v*:refs/tags/v*"
 
       - name: Build Setup
         uses: ./.github/actions/build-setup
