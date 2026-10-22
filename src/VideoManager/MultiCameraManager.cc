@@ -2,10 +2,12 @@
 
 #include <chrono>
 
+#include <QtCore/QCryptographicHash>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QSet>
+#include <QtCore/QUrl>
 
 #include "Fact.h"
 #include "MavlinkCameraControlInterface.h"
@@ -25,6 +27,64 @@ namespace {
 
 // Camera and stream discovery arrive as bursts of signals; coalesce them into one rebuild.
 constexpr std::chrono::milliseconds kRebuildDelay{250};
+constexpr int kDefaultRtspPort = 554;
+
+// Vendor RTSP layouts; channel is 1-based (NVR channel or 1 for a single camera).
+QString presetPath(const QString& type, int channel, bool subStream, QString* query)
+{
+    if (type == QLatin1String("dahua")) {
+        *query = QStringLiteral("channel=%1&subtype=%2").arg(channel).arg(subStream ? 1 : 0);
+        return QStringLiteral("/cam/realmonitor");
+    }
+    if (type == QLatin1String("hikvision")) {
+        return QStringLiteral("/Streaming/Channels/%1").arg(channel * 100 + (subStream ? 2 : 1));
+    }
+    if (type == QLatin1String("unv")) {
+        return QStringLiteral("/unicast/c%1/s%2/live").arg(channel).arg(subStream ? 1 : 0);
+    }
+    return QString();
+}
+
+QUrl manualStreamUrl(const QJsonObject& entry)
+{
+    const QString type = entry.value(QStringLiteral("type")).toString();
+    if (type.isEmpty() || (type == QLatin1String("custom"))) {
+        return QUrl(entry.value(QStringLiteral("uri")).toString().trimmed());
+    }
+
+    const QString host = entry.value(QStringLiteral("host")).toString().trimmed();
+    if (host.isEmpty()) {
+        return QUrl();
+    }
+    const int channel = qMax(1, entry.value(QStringLiteral("channel")).toInt(1));
+    const bool subStream = entry.value(QStringLiteral("stream")).toString() == QLatin1String("sub");
+    QString query;
+    const QString path = presetPath(type, channel, subStream, &query);
+    if (path.isEmpty()) {
+        qCWarning(MultiCameraManagerLog) << "Unknown camera preset" << type;
+        return QUrl();
+    }
+
+    int port = entry.value(QStringLiteral("port")).toInt(kDefaultRtspPort);
+    if ((port < 1) || (port > 65535)) {
+        port = kDefaultRtspPort;
+    }
+
+    QUrl url;
+    url.setScheme(QStringLiteral("rtsp"));
+    url.setHost(host);
+    url.setPort(port);
+    const QString username = entry.value(QStringLiteral("username")).toString();
+    if (!username.isEmpty()) {
+        url.setUserName(username);
+        url.setPassword(entry.value(QStringLiteral("password")).toString());
+    }
+    url.setPath(path);
+    if (!query.isEmpty()) {
+        url.setQuery(query);
+    }
+    return url;
+}
 
 }  // namespace
 
@@ -164,6 +224,29 @@ QString MultiCameraManager::uriForStreamInfo(const QGCVideoStreamInfo* info)
     }
 }
 
+QString MultiCameraManager::manualStreamUri(const QJsonObject& entry)
+{
+    const QUrl url = manualStreamUrl(entry);
+    return url.isValid() ? url.toString(QUrl::FullyEncoded) : QString();
+}
+
+QString MultiCameraManager::manualStreamPreview(const QVariantMap& entry) const
+{
+    const QUrl url = manualStreamUrl(QJsonObject::fromVariantMap(entry));
+    if (!url.isValid() || url.isEmpty()) {
+        return QString();
+    }
+    QString text = url.adjusted(QUrl::RemovePassword).toString(QUrl::FullyEncoded);
+    if (!url.password().isEmpty()) {
+        // A literal '@' after the scheme can only be the userinfo separator; one in the user name is %-encoded.
+        const qsizetype at = text.indexOf(QLatin1Char('@'), text.indexOf(QStringLiteral("://")) + 3);
+        if (at > 0) {
+            text.insert(at, QStringLiteral(":***"));
+        }
+    }
+    return text;
+}
+
 void MultiCameraManager::_scheduleRebuild()
 {
     _rebuildTimer.start();
@@ -210,7 +293,7 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
     const QJsonArray entries = doc.array();
     for (const QJsonValue& value : entries) {
         const QJsonObject entry = value.toObject();
-        const QString uri = entry.value(QStringLiteral("uri")).toString().trimmed();
+        const QString uri = manualStreamUri(entry);
         if (uri.isEmpty()) {
             continue;
         }
@@ -222,7 +305,9 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         }
 
         StreamSpec spec;
-        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(uri);
+        // The URI may carry camera credentials; the key ends up in logs and receiver names, so hash it.
+        const QByteArray uriHash = QCryptographicHash::hash(uri.toUtf8(), QCryptographicHash::Sha256).toHex().left(12);
+        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(QString::fromLatin1(uriHash));
         spec.label = (vehicleId > 0) ? tr("Vehicle %1 · %2").arg(vehicleId).arg(name) : name;
         spec.uri = uri;
         spec.vehicleId = vehicleId;

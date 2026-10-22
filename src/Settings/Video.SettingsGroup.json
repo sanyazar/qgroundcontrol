@@ -235,7 +235,7 @@
         {
             "name": "multiCameraStreams",
             "shortDesc": "Manually configured camera streams (JSON).",
-            "longDesc": "JSON array of objects with vehicleId (MAVLink system ID, 0 if not tied to a vehicle), name and uri (rtsp://, udp://, udp265://, mpegts:// or tcp://). Edited from the Video settings page.",
+            "longDesc": "JSON array of objects with vehicleId (MAVLink system ID, 0 if not tied to a vehicle), name and type. Type custom (default) uses uri (rtsp://, udp://, udp265://, mpegts:// or tcp://); types dahua, hikvision and unv build the RTSP URL from host, port, username, password, channel and stream (main or sub). Edited from the Video settings page.",
             "type": "string",
             "default": "[]",
             "label": "Manual camera streams"

@@ -23,8 +23,10 @@ Connection settings vary by source type:
 ## Manual Camera Streams
 
 Shown when **Multiple camera streams** is on.
-One row per stream: **Vehicle ID** (MAVLink system ID, `0` if not tied to a vehicle), **Name**, and **Stream URL** (`rtsp://`, `udp://`, `udp265://`, `mpegts://` or `tcp://`).
-Use **Add Stream** to add a row and the trash icon to remove one.
+One entry per stream: **Vehicle ID** (MAVLink system ID, `0` if not tied to a vehicle), **Name** and **Camera type**.
+For **Custom URL** enter the **Stream URL** (`rtsp://`, `udp://`, `udp265://`, `mpegts://` or `tcp://`).
+For **Dahua**, **Hikvision** and **Uniview (UNV)** enter the camera address, RTSP port (default `554`), login, password, channel and main/sub stream, and the RTSP URL is built automatically — see [Camera Presets](../fly_view/multi_camera.md#camera-presets).
+Use **Add Stream** to add an entry and the trash icon to remove one.
 
 ## Settings
 

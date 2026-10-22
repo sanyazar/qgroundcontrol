@@ -19,6 +19,8 @@
 | `build: rename to QGroundControl-Bastion and add package workflow` | Перейменування, `packages.yml` |
 | `ci(packages): fetch upstream version tags before packaging` | Виправлення версії `0.0.0` у CI |
 | `ci(packages): add Android APK and self-hosted runner support` | `.apk`, підпис, вибір раннера |
+| `ci(packages): build a .deb for each supported Ubuntu release` | `.deb` для 22.04 / 24.04 / 26.04 |
+| `feat(Video): add Dahua, Hikvision and Uniview camera presets` | Пресети камер |
 
 ## 1. Мультикамера
 
@@ -26,10 +28,12 @@
 
 1. **Налаштування → Video → Multiple camera streams** — увімкнути.
 2. **Maximum streams** — скільки потоків декодувати одночасно (за замовчуванням 4, від 1 до 9).
-3. **Manual Camera Streams** — додати потоки вручну, по рядку на камеру:
+3. **Manual Camera Streams** — додати потоки вручну (**Add Stream**), по картці на камеру:
    - **Vehicle ID** — MAVLink SYSID дрона (`0` — не прив'язаний до дрона);
    - **Name** — підпис на плитці, напр. `Front`, `Thermal`;
-   - **Stream URL** — `rtsp://…`, `udp://0.0.0.0:5600`, `udp265://…`, `mpegts://…`, `tcp://…`.
+   - **Camera type** — **Dahua**, **Hikvision**, **Uniview (UNV)** або **Custom URL**;
+   - для **Custom URL**: **Stream URL** — `rtsp://…`, `udp://0.0.0.0:5600`, `udp265://…`, `mpegts://…`, `tcp://…`;
+   - для пресетів: **Camera address** (IP), **RTSP port** (за замовчуванням `554`), **Login** (`admin`), **Password**, **Channel** (`1`, на NVR — номер камери), **Stream** (Main — повна якість, Sub — легший потік). URL будується сам і показується під полями з прихованим паролем.
 4. Камери, які підтримують MAVLink camera protocol, з'являються самі — з усіх підключених дронів.
 
 У Fly View:
@@ -41,6 +45,18 @@
 - червона крапка біля назви — потік зараз пишеться.
 
 Файли: `<папка відео>/2026-10-22_20.15.03.Vehicle_1_Front.mkv`, `<папка фото>/2026-10-22_20.15.07.512.Vehicle_2_Down.jpg`.
+
+### Пресети камер
+
+| Тип | RTSP URL (канал 1) |
+| --- | ------------------ |
+| Dahua | `rtsp://<адреса>:<порт>/cam/realmonitor?channel=1&subtype=0` (sub: `subtype=1`) |
+| Hikvision | `rtsp://<адреса>:<порт>/Streaming/Channels/101` (sub: `102`; канал 2 — `201`/`202`) |
+| Uniview (UNV) | `rtsp://<адреса>:<порт>/unicast/c1/s0/live` (sub: `s1`) |
+
+Логін і пароль передаються камері через RTSP-автентифікацію GStreamer (`user-id`/`user-pw`) і не потрапляють у логи: ключ потоку містить лише хеш URL.
+Паролі зберігаються у файлі налаштувань QGC відкритим текстом (як і будь-які URL потоків), тож краще завести на камері окремий обліковий запис лише з правом перегляду.
+Код: `MultiCameraManager::manualStreamUri()` / `manualStreamPreview()`, тест `_testCameraPresetUris`.
 
 ### Правила підбору потоків
 

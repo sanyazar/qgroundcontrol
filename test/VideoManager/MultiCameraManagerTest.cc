@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtCore/QRegularExpression>
 
 #include "Fact.h"
@@ -107,6 +109,71 @@ void MultiCameraManagerTest::_testManualStreams()
     videoSettings->multiCameraEnabled()->setRawValue(false);
     QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
     QCOMPARE(manager.mainIndex(), -1);
+}
+
+void MultiCameraManagerTest::_testCameraPresetUris_data()
+{
+    QTest::addColumn<QString>("entryJson");
+    QTest::addColumn<QString>("expected");
+
+    QTest::newRow("custom") << R"({"type":"custom","uri":"rtsp://10.0.0.2/live"})"
+                            << QStringLiteral("rtsp://10.0.0.2/live");
+    QTest::newRow("legacy entry without type")
+        << R"({"uri":"udp://0.0.0.0:5600"})" << QStringLiteral("udp://0.0.0.0:5600");
+    QTest::newRow("dahua main") << R"({"type":"dahua","host":"192.168.1.108","username":"admin","password":"secret"})"
+                                << QStringLiteral(
+                                       "rtsp://admin:secret@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0");
+    QTest::newRow("dahua sub channel 3") << R"({"type":"dahua","host":"192.168.1.108","channel":3,"stream":"sub"})"
+                                         << QStringLiteral(
+                                                "rtsp://192.168.1.108:554/cam/realmonitor?channel=3&subtype=1");
+    QTest::newRow("hikvision main custom port")
+        << R"({"type":"hikvision","host":"192.168.1.64","port":8554,"username":"admin","password":"p@ss"})"
+        << QStringLiteral("rtsp://admin:p%40ss@192.168.1.64:8554/Streaming/Channels/101");
+    QTest::newRow("hikvision sub channel 2") << R"({"type":"hikvision","host":"cam.local","channel":2,"stream":"sub"})"
+                                             << QStringLiteral("rtsp://cam.local:554/Streaming/Channels/202");
+    QTest::newRow("unv main") << R"({"type":"unv","host":"10.1.1.5","username":"admin","password":"123"})"
+                              << QStringLiteral("rtsp://admin:123@10.1.1.5:554/unicast/c1/s0/live");
+    QTest::newRow("unv sub") << R"({"type":"unv","host":"10.1.1.5","stream":"sub"})"
+                             << QStringLiteral("rtsp://10.1.1.5:554/unicast/c1/s1/live");
+    QTest::newRow("invalid port falls back to 554") << R"({"type":"unv","host":"10.1.1.5","port":70000})"
+                                                    << QStringLiteral("rtsp://10.1.1.5:554/unicast/c1/s0/live");
+    QTest::newRow("preset without host") << R"({"type":"dahua","username":"admin"})" << QString();
+}
+
+void MultiCameraManagerTest::_testCameraPresetUris()
+{
+    QFETCH(QString, entryJson);
+    QFETCH(QString, expected);
+
+    const QJsonObject entry = QJsonDocument::fromJson(entryJson.toUtf8()).object();
+    QCOMPARE(MultiCameraManager::manualStreamUri(entry), expected);
+}
+
+void MultiCameraManagerTest::_testPresetCredentialsStayOutOfKeys()
+{
+    VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
+    MultiCameraManager manager;
+    manager.init();
+
+    const QVariantMap entry{
+        {QStringLiteral("type"), QStringLiteral("hikvision")},
+        {QStringLiteral("host"), QStringLiteral("192.168.1.64")},
+        {QStringLiteral("username"), QStringLiteral("admin")},
+        {QStringLiteral("password"), QStringLiteral("TopSecret1")},
+    };
+    QCOMPARE(manager.manualStreamPreview(entry),
+             QStringLiteral("rtsp://admin:***@192.168.1.64:554/Streaming/Channels/101"));
+
+    videoSettings->multiCameraStreams()->setRawValue(
+        QStringLiteral(R"([{"vehicleId":1,"name":"Front","type":"hikvision","host":"192.168.1.64",)"
+                       R"("username":"admin","password":"TopSecret1"}])"));
+    videoSettings->multiCameraEnabled()->setRawValue(true);
+
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 1, kRebuildTimeoutMs);
+    const auto* const stream = manager.streams()->value<MultiCameraStream*>(0);
+    QVERIFY(stream->uri().contains(QStringLiteral("TopSecret1")));
+    QVERIFY(!stream->key().contains(QStringLiteral("TopSecret1")));
+    QVERIFY(!stream->label().contains(QStringLiteral("TopSecret1")));
 }
 
 UT_REGISTER_TEST(MultiCameraManagerTest, TestLabel::Unit)

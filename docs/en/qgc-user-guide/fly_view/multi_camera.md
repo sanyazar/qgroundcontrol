@@ -33,7 +33,8 @@ Each row of the list describes one stream:
 - **Vehicle ID** — MAVLink system ID of the vehicle the camera is on (shown in the stream label).
   Use `0` for a stream that is not tied to a vehicle.
 - **Name** — label shown on the video tile, for example `Front` or `Thermal`.
-- **Stream URL** — one of:
+- **Camera type** — **Dahua**, **Hikvision** or **Uniview (UNV)** to build the stream URL for you (see [Camera Presets](#camera-presets)), or **Custom URL** to enter it yourself.
+- **Stream URL** (Custom URL only) — one of:
 
   | Format | Example |
   | ------ | ------- |
@@ -43,12 +44,38 @@ Each row of the list describes one stream:
   | MPEG-TS over UDP | `mpegts://0.0.0.0:5602` |
   | TCP MPEG | `tcp://192.168.1.10:5000` |
 
-Press **Add Stream** to add a row and the trash icon to delete one.
+Press **Add Stream** to add a stream and the trash icon to delete one.
 Changes apply immediately; there is no need to restart _QGroundControl_.
 
 ::: tip
 Give every UDP stream its own port.
 A typical two-vehicle, two-camera setup is `udp://0.0.0.0:5600` and `udp://0.0.0.0:5601` for vehicle 1, and `udp://0.0.0.0:5602` and `udp://0.0.0.0:5603` for vehicle 2.
+:::
+
+### Camera Presets
+
+For Dahua, Hikvision and Uniview IP cameras and NVRs you do not need to know the RTSP URL.
+Select the camera type and fill in:
+
+- **Camera address** — IP address or host name of the camera or NVR, for example `192.168.1.64`.
+- **RTSP port** — `554` by default; change it if the camera uses another RTSP port.
+- **Login** / **Password** — the camera account (`admin` is pre-filled).
+- **Channel** — `1` for a single camera; the camera input number on an NVR.
+- **Stream** — **Main stream** (full resolution) or **Sub stream** (lower resolution and bitrate, lighter to decode; useful when many streams run at once).
+
+_QGroundControl_ builds the vendor's RTSP URL and shows it below the fields with the password masked:
+
+| Camera type | RTSP URL (channel 1) |
+| ----------- | -------------------- |
+| Dahua | `rtsp://<address>:<port>/cam/realmonitor?channel=1&subtype=0` (`subtype=1` for sub stream) |
+| Hikvision | `rtsp://<address>:<port>/Streaming/Channels/101` (`102` for sub stream; channel 2 is `201`/`202`) |
+| Uniview (UNV) | `rtsp://<address>:<port>/unicast/c1/s0/live` (`s1` for sub stream) |
+
+The login and password are sent to the camera through RTSP authentication and are never written to the log.
+
+::: warning
+Camera passwords are stored in the _QGroundControl_ settings file in plain text, like other stream URLs.
+Use a dedicated camera account with view-only rights.
 :::
 
 ## Using the Video View

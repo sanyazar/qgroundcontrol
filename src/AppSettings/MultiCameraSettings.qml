@@ -12,11 +12,26 @@ QGCGroupBox {
     heading: qsTr("Manual Camera Streams")
     headingDescription: qsTr("Streams listed here are shown in addition to MAVLink camera streams. "
                              + "Vehicle ID is the MAVLink system ID (0: not tied to a vehicle). "
-                             + "URL examples: rtsp://192.168.1.10:8554/main, udp://0.0.0.0:5600, "
+                             + "For Dahua, Hikvision and Uniview cameras pick the camera type and enter its address "
+                             + "and login; the RTSP URL is built automatically. "
+                             + "Other cameras: rtsp://192.168.1.10:8554/main, udp://0.0.0.0:5600, "
                              + "udp265://0.0.0.0:5601, mpegts://0.0.0.0:5602, tcp://192.168.1.10:5000")
 
     property Fact _streamsFact: QGroundControl.settingsManager.videoSettings.multiCameraStreams
+    property var _multiCamera: QGroundControl.videoManager.multiCamera
     property var _entries: []
+
+    readonly property var _types: [
+        { value: "custom", text: qsTr("Custom URL") },
+        { value: "dahua", text: "Dahua" },
+        { value: "hikvision", text: "Hikvision" },
+        { value: "unv", text: qsTr("Uniview (UNV)") }
+    ]
+    readonly property var _streamKinds: [
+        { value: "main", text: qsTr("Main stream") },
+        { value: "sub", text: qsTr("Sub stream") }
+    ]
+    readonly property real _fieldWidth: ScreenTools.defaultFontPixelWidth * 16
 
     function _load() {
         var parsed = []
@@ -32,20 +47,40 @@ QGCGroupBox {
         _streamsFact.rawValue = JSON.stringify(_entries)
     }
 
-    function _setField(index, field, value) {
-        if (_entries[index][field] === value) {
+    function _update(index, changes) {
+        var copy = _entries.slice()
+        copy[index] = Object.assign({}, copy[index], changes)
+        if (JSON.stringify(copy[index]) === JSON.stringify(_entries[index])) {
             return
         }
-        var copy = _entries.slice()
-        copy[index] = Object.assign({}, copy[index])
-        copy[index][field] = value
         _entries = copy
         _save()
     }
 
+    function _setType(index, type) {
+        var entry = _entries[index]
+        var changes = { type: type }
+        if (type !== "custom") {
+            // Vendor defaults: RTSP port 554, first channel, main stream.
+            if (entry.port === undefined) {
+                changes.port = 554
+            }
+            if (entry.channel === undefined) {
+                changes.channel = 1
+            }
+            if (entry.stream === undefined) {
+                changes.stream = "main"
+            }
+            if (entry.username === undefined) {
+                changes.username = "admin"
+            }
+        }
+        _update(index, changes)
+    }
+
     function _add() {
         var copy = _entries.slice()
-        copy.push({ vehicleId: 1, name: qsTr("Camera %1").arg(copy.length + 1), uri: "" })
+        copy.push({ vehicleId: 1, name: qsTr("Camera %1").arg(copy.length + 1), type: "custom", uri: "" })
         _entries = copy
         _save()
     }
@@ -57,73 +92,185 @@ QGCGroupBox {
         _save()
     }
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: ScreenTools.defaultFontPixelWidth
-        visible: _entries.length > 0
-
-        QGCLabel {
-            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 10
-            text: qsTr("Vehicle ID")
+    function _indexOf(list, value, fallback) {
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].value === value) {
+                return i
+            }
         }
-        QGCLabel {
-            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 16
-            text: qsTr("Name")
-        }
-        QGCLabel {
-            Layout.fillWidth: true
-            text: qsTr("Stream URL")
-        }
-        Item {
-            Layout.preferredWidth: ScreenTools.minTouchPixels
-        }
+        return fallback
     }
 
     Repeater {
         model: _entries
 
-        RowLayout {
+        Rectangle {
+            id: entryCard
+
             Layout.fillWidth: true
-            spacing: ScreenTools.defaultFontPixelWidth
+            implicitHeight: entryLayout.implicitHeight + ScreenTools.defaultFontPixelHeight
+            color: "transparent"
+            border.color: qgcPal.borderSubtle
+            radius: ScreenTools.defaultFontPixelWidth / 2
 
             required property var modelData
             required property int index
 
-            QGCTextField {
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 10
-                text: modelData.vehicleId !== undefined ? String(modelData.vehicleId) : "0"
-                numericValuesOnly: true
-                validator: IntValidator { bottom: 0; top: 255 }
-                onEditingFinished: _root._setField(index, "vehicleId", parseInt(text) || 0)
-            }
+            readonly property string _type: modelData.type !== undefined ? modelData.type : "custom"
+            readonly property bool _isPreset: _type !== "custom"
 
-            QGCTextField {
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 16
-                text: modelData.name !== undefined ? modelData.name : ""
-                onEditingFinished: _root._setField(index, "name", text.trim())
-            }
+            ColumnLayout {
+                id: entryLayout
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: ScreenTools.defaultFontPixelHeight / 2
+                spacing: ScreenTools.defaultFontPixelHeight / 2
 
-            QGCTextField {
-                Layout.fillWidth: true
-                Layout.minimumWidth: ScreenTools.defaultFontPixelWidth * 30
-                text: modelData.uri !== undefined ? modelData.uri : ""
-                placeholderText: "rtsp://192.168.1.10:8554/main"
-                onEditingFinished: _root._setField(index, "uri", text.trim())
-            }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ScreenTools.defaultFontPixelWidth
 
-            QGCColoredImage {
-                Layout.preferredWidth: ScreenTools.minTouchPixels
-                Layout.preferredHeight: ScreenTools.minTouchPixels
-                sourceSize.height: height
-                fillMode: Image.PreserveAspectFit
-                mipmap: true
-                smooth: true
-                color: qgcPal.textPrimary
-                source: "/res/TrashDelete.svg"
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Vehicle ID") }
+                        QGCTextField {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 8
+                            text: entryCard.modelData.vehicleId !== undefined ? String(entryCard.modelData.vehicleId) : "0"
+                            numericValuesOnly: true
+                            validator: IntValidator { bottom: 0; top: 255 }
+                            onEditingFinished: _root._update(entryCard.index, { vehicleId: parseInt(text) || 0 })
+                        }
+                    }
 
-                QGCMouseArea {
-                    fillItem: parent
-                    onClicked: _root._remove(index)
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Name") }
+                        QGCTextField {
+                            Layout.preferredWidth: _root._fieldWidth
+                            text: entryCard.modelData.name !== undefined ? entryCard.modelData.name : ""
+                            onEditingFinished: _root._update(entryCard.index, { name: text.trim() })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Camera type") }
+                        QGCComboBox {
+                            Layout.preferredWidth: _root._fieldWidth
+                            model: _root._types.map(function (t) { return t.text })
+                            currentIndex: _root._indexOf(_root._types, entryCard._type, 0)
+                            onActivated: (comboIndex) => _root._setType(entryCard.index, _root._types[comboIndex].value)
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    QGCColoredImage {
+                        Layout.alignment: Qt.AlignTop
+                        Layout.preferredWidth: ScreenTools.minTouchPixels
+                        Layout.preferredHeight: ScreenTools.minTouchPixels
+                        sourceSize.height: height
+                        fillMode: Image.PreserveAspectFit
+                        mipmap: true
+                        smooth: true
+                        color: qgcPal.textPrimary
+                        source: "/res/TrashDelete.svg"
+
+                        QGCMouseArea {
+                            fillItem: parent
+                            onClicked: _root._remove(entryCard.index)
+                        }
+                    }
+                }
+
+                // Custom URL
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: !entryCard._isPreset
+
+                    QGCLabel { text: qsTr("Stream URL") }
+                    QGCTextField {
+                        Layout.fillWidth: true
+                        text: entryCard.modelData.uri !== undefined ? entryCard.modelData.uri : ""
+                        placeholderText: "rtsp://192.168.1.10:8554/main"
+                        onEditingFinished: _root._update(entryCard.index, { uri: text.trim() })
+                    }
+                }
+
+                // Camera preset
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: ScreenTools.defaultFontPixelWidth
+                    visible: entryCard._isPreset
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Camera address") }
+                        QGCTextField {
+                            Layout.preferredWidth: _root._fieldWidth
+                            text: entryCard.modelData.host !== undefined ? entryCard.modelData.host : ""
+                            placeholderText: "192.168.1.64"
+                            onEditingFinished: _root._update(entryCard.index, { host: text.trim() })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("RTSP port") }
+                        QGCTextField {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 8
+                            text: entryCard.modelData.port !== undefined ? String(entryCard.modelData.port) : "554"
+                            numericValuesOnly: true
+                            validator: IntValidator { bottom: 1; top: 65535 }
+                            onEditingFinished: _root._update(entryCard.index, { port: parseInt(text) || 554 })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Login") }
+                        QGCTextField {
+                            Layout.preferredWidth: _root._fieldWidth
+                            text: entryCard.modelData.username !== undefined ? entryCard.modelData.username : ""
+                            onEditingFinished: _root._update(entryCard.index, { username: text })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Password") }
+                        QGCTextField {
+                            Layout.preferredWidth: _root._fieldWidth
+                            echoMode: TextInput.Password
+                            text: entryCard.modelData.password !== undefined ? entryCard.modelData.password : ""
+                            onEditingFinished: _root._update(entryCard.index, { password: text })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Channel") }
+                        QGCTextField {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 6
+                            text: entryCard.modelData.channel !== undefined ? String(entryCard.modelData.channel) : "1"
+                            numericValuesOnly: true
+                            validator: IntValidator { bottom: 1; top: 256 }
+                            onEditingFinished: _root._update(entryCard.index, { channel: parseInt(text) || 1 })
+                        }
+                    }
+
+                    ColumnLayout {
+                        QGCLabel { text: qsTr("Stream") }
+                        QGCComboBox {
+                            Layout.preferredWidth: _root._fieldWidth
+                            model: _root._streamKinds.map(function (k) { return k.text })
+                            currentIndex: _root._indexOf(_root._streamKinds, entryCard.modelData.stream, 0)
+                            onActivated: (comboIndex) => _root._update(entryCard.index, { stream: _root._streamKinds[comboIndex].value })
+                        }
+                    }
+                }
+
+                QGCLabel {
+                    Layout.fillWidth: true
+                    visible: entryCard._isPreset
+                    readonly property string _preview: _root._multiCamera ? _root._multiCamera.manualStreamPreview(entryCard.modelData) : ""
+                    text: _preview !== "" ? qsTr("Stream URL: %1").arg(_preview) : qsTr("Enter the camera address")
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    wrapMode: Text.WrapAnywhere
+                    color: qgcPal.textSecondary
                 }
             }
         }

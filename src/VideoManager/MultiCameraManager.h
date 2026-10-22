@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QtCore/QJsonObject>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
+#include <QtCore/QVariantMap>
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include "QmlObjectListModel.h"
@@ -51,6 +53,13 @@ public:
 
     /// Receiver URI for a MAVLink VIDEO_STREAM_INFORMATION, in the same form VideoManager uses.
     static QString uriForStreamInfo(const QGCVideoStreamInfo* info);
+
+    /// Receiver URI for one manual stream entry: its "uri" for type "custom" (or no type), otherwise
+    /// the RTSP URL of a camera preset ("dahua", "hikvision", "unv") built from host, port, username,
+    /// password, channel and stream ("main"/"sub"). Empty when the entry is incomplete.
+    static QString manualStreamUri(const QJsonObject& entry);
+    /// manualStreamUri() with the password masked, for showing in the settings page.
+    Q_INVOKABLE QString manualStreamPreview(const QVariantMap& entry) const;
 
 signals:
     void enabledChanged();
