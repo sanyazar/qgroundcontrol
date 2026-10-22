@@ -82,6 +82,15 @@ jobs:
         if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk-space
 
+      - name: Check Docker access
+        if: runner.environment == 'self-hosted'
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker is not usable by the runner user $(id -un) (groups: $(id -Gn)). Add it to the docker group and restart the runner: sudo usermod -aG docker $(id -un), then reinstall it as a service (sudo ./svc.sh install $(id -un) && sudo ./svc.sh start) or start ./run.sh from a new login session."
+            docker info 2>&1 | tail -5 || true
+            exit 1
+          fi
+
       - name: Build in Docker
         env:
           VARIANT: ${{ matrix.variant }}
@@ -158,6 +167,15 @@ jobs:
       - name: Free Disk Space
         if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk-space
+
+      - name: Check Docker access
+        if: runner.environment == 'self-hosted'
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker is not usable by the runner user $(id -un) (groups: $(id -Gn)). Add it to the docker group and restart the runner: sudo usermod -aG docker $(id -un), then reinstall it as a service (sudo ./svc.sh install $(id -un) && sudo ./svc.sh start) or start ./run.sh from a new login session."
+            docker info 2>&1 | tail -5 || true
+            exit 1
+          fi
 
       - name: Build in Docker
         env:
