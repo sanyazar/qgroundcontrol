@@ -83,6 +83,12 @@ public:
     /// manualStreamUri() with the password masked, for showing in the settings page.
     Q_INVOKABLE QString manualStreamPreview(const QVariantMap& entry) const;
 
+    /// A stream of the camera described by @p entry for a settings preview, outside the Fly View's streams.
+    /// It keeps reconnecting while the camera is unreachable. Owned by the manager: release it with
+    /// stopPreview() after detaching its VideoOutput. Null when the entry has no stream URL.
+    Q_INVOKABLE MultiCameraStream* startPreview(const QVariantMap& entry);
+    Q_INVOKABLE void stopPreview(MultiCameraStream* stream);
+
 signals:
     void enabledChanged();
     void mainIndexChanged();
@@ -123,6 +129,7 @@ private:
 
     VideoSettings* _videoSettings = nullptr;
     QmlObjectListModel _streams;
+    QList<MultiCameraStream*> _previews;
     QTimer _rebuildTimer;
     QString _mainKey;
     QSet<QString> _hiddenKeys;

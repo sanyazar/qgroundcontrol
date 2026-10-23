@@ -2,19 +2,22 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtMultimedia
 
 import QGroundControl
 import QGroundControl.Controls
 
-/// Settings of one camera's vehicle width guide lines (CameraGuidesOverlay), with a live preview. The guides
-/// show on that camera's video while it is the main camera or in a separate window.
+/// Settings of one camera's vehicle width guide lines (CameraGuidesOverlay), with a live preview over the camera's
+/// own video when it can be reached (reconnecting whenever it drops). The guides show on that camera's video while
+/// it is the main camera or in a separate window.
 QGCPopupDialog {
     id: dialog
 
     buttons: Dialog.Save | Dialog.Cancel
 
     property int entryIndex: -1
-    property var initialGuides: ({})
+    property var entry: ({})            ///< The camera's settings entry: its stream for the preview
+    property var initialGuides: entry && entry.guides ? entry.guides : ({})
 
     /// Save was pressed: the new settings for the camera at @p index.
     signal guidesAccepted(int index, var guides)
@@ -29,6 +32,27 @@ QGCPopupDialog {
     }
 
     onAccepted: guidesAccepted(entryIndex, _guides)
+
+    readonly property var _multiCamera: QGroundControl.videoManager.multiCamera
+    property var _previewStream: null
+
+    Component.onCompleted: {
+        if (_multiCamera && entry) {
+            _previewStream = _multiCamera.startPreview(entry)
+            if (_previewStream) {
+                _previewStream.attachVideoOutput(previewVideo)
+            }
+        }
+    }
+
+    // The preview's receiver renders into previewVideo, so it goes first.
+    Component.onDestruction: {
+        if (_previewStream) {
+            _previewStream.detachVideoOutput(previewVideo)
+            _multiCamera.stopPreview(_previewStream)
+            _previewStream = null
+        }
+    }
 
     // A number field for one setting; empty or invalid input keeps the previous value. Inline components do not
     // see the dialog's ids, so the value comes in and the edit goes out through the instance.
@@ -90,11 +114,6 @@ QGCPopupDialog {
                 NumberField { label: qsTr("Horizontal FOV, °"); minimum: 10; maximum: 170; value: dialog._guides.cameraFov; onValueEdited: (v) => dialog._set("cameraFov", v) }
                 NumberField { label: qsTr("Offset right, m"); minimum: -10; maximum: 10; value: dialog._guides.cameraOffset; onValueEdited: (v) => dialog._set("cameraOffset", v) }
             }
-            QGCCheckBox {
-                text: qsTr("Mirrored picture (rear camera)")
-                checked: dialog._guides.mirror === true
-                onClicked: dialog._set("mirror", checked)
-            }
 
             QGCLabel {
                 text: qsTr("Lines")
@@ -128,6 +147,11 @@ QGCPopupDialog {
                 checked: dialog._guides.showLabels !== false
                 onClicked: dialog._set("showLabels", checked)
             }
+            QGCCheckBox {
+                text: qsTr("Mirrored picture (rear camera)")
+                checked: dialog._guides.mirror === true
+                onClicked: dialog._set("mirror", checked)
+            }
         }
 
         ColumnLayout {
@@ -138,7 +162,8 @@ QGCPopupDialog {
                 font.bold: true
             }
 
-            // Sky and ground stand in for the picture; the horizon sits where the camera tilt puts it.
+            // The camera's video when it streams; until then sky and ground stand in for the picture, with the
+            // horizon where the camera tilt puts it.
             Rectangle {
                 id: previewFrame
 
@@ -154,18 +179,45 @@ QGCPopupDialog {
                            + Number(dialog._guides.shiftY) / 100 * height
                 }
 
+                readonly property bool _live: !!dialog._previewStream && dialog._previewStream.decoding
+
                 Rectangle {
                     x: 0
                     y: Math.max(0, Math.min(previewFrame.height, previewFrame._horizon))
                     width: previewFrame.width
                     height: previewFrame.height - y
                     color: "#3b3f36"
+                    visible: !previewFrame._live
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: "black"
+                    visible: previewFrame._live
+                }
+
+                VideoOutput {
+                    id: previewVideo
+                    anchors.fill: parent
+                    fillMode: VideoOutput.PreserveAspectFit
                 }
 
                 CameraGuidesOverlay {
                     id: preview
                     anchors.fill: parent
+                    area: previewFrame._live ? previewVideo.contentRect : Qt.rect(0, 0, 0, 0)
                     guides: dialog._guides
+                }
+
+                QGCLabel {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
+                    visible: !previewFrame._live
+                    color: "white"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    text: !dialog._previewStream ? qsTr("No stream address: drawn preview")
+                                                 : qsTr("Connecting to the camera... (drawn preview until its video arrives)")
                 }
             }
 

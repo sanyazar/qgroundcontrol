@@ -144,7 +144,7 @@ void MultiCameraStream::_createReceiver()
     VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
     _receiver->setLowLatency(videoSettings->lowLatencyMode()->rawValue().toBool());
     _receiver->setRtpJitterLatencyMs(videoSettings->rtpJitterLatencyMs()->rawValue().toInt());
-    _receiver->setAutoReconnect(videoSettings->rtspAutoReconnect()->rawValue().toBool());
+    _receiver->setAutoReconnect(_alwaysReconnect || videoSettings->rtspAutoReconnect()->rawValue().toBool());
     _receiver->setUri(_uri);
 
     _connectReceiver();
@@ -183,7 +183,12 @@ void MultiCameraStream::_connectReceiver()
     (void) connect(receiver, &VideoReceiver::streamingChanged, receiver,
                    [this](bool active) { _setStreaming(active); });
 
-    (void) connect(receiver, &VideoReceiver::decodingChanged, receiver, [this](bool active) { _setDecoding(active); });
+    (void) connect(receiver, &VideoReceiver::decodingChanged, receiver, [this](bool active) {
+        _setDecoding(active);
+        if (active) {
+            _resumeRecording();
+        }
+    });
 
     (void) connect(receiver, &VideoReceiver::recordingChanged, receiver,
                    [this](bool active) { _setRecording(active); });
@@ -258,6 +263,7 @@ void MultiCameraStream::releaseReceiver()
         delete receiver;
     }
 
+    _recordingWanted = false;
     _setStreaming(false);
     _setDecoding(false);
     _setRecording(false);
@@ -277,18 +283,42 @@ void MultiCameraStream::startRecording()
         QGC::showAppMessage(tr("Unable to record %1: video stream is not running.").arg(_label));
         return;
     }
+    if (_recordingWanted) {
+        return;
+    }
+    _recordingWanted = true;
+    emit recordingChanged();
+    _startRecordingFile();
+}
 
+// A lost stream ends the file being written (the receiver tears its pipeline down); once the receiver has
+// reconnected and decodes again, recording goes on into a new file.
+void MultiCameraStream::_resumeRecording()
+{
+    if (_recordingWanted && !_recording && _receiver && _receiver->started()) {
+        qCDebug(MultiCameraStreamLog) << _key << "stream is back, resuming recording";
+        _startRecordingFile();
+    }
+}
+
+void MultiCameraStream::_startRecordingFile()
+{
+    if (!_receiver) {
+        return;
+    }
     VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
     const auto fileFormat =
         static_cast<VideoReceiver::FILE_FORMAT>(videoSettings->recordingFormat()->rawValue().toInt());
     if (!VideoReceiver::isValidFileFormat(fileFormat)) {
         QGC::showAppMessage(tr("Invalid video format defined."));
+        stopRecording();
         return;
     }
 
     const QString savePath = SettingsManager::instance()->appSettings()->videoSavePath();
     if (savePath.isEmpty()) {
         QGC::showAppMessage(tr("Unable to record video. Video save path must be specified in Settings."));
+        stopRecording();
         return;
     }
 
@@ -304,6 +334,10 @@ void MultiCameraStream::startRecording()
 
 void MultiCameraStream::stopRecording()
 {
+    if (_recordingWanted) {
+        _recordingWanted = false;
+        emit recordingChanged();
+    }
     if (_receiver) {
         _receiver->stopRecording();
     }

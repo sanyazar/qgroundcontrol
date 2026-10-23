@@ -67,7 +67,7 @@ A typical two-vehicle, two-camera setup is `udp://0.0.0.0:5600` and `udp://0.0.0
 ### Vehicle Width Guides
 
 For a ground vehicle, each camera can show parking-sensor style guide lines: the vehicle's side lines and cross lines at set distances in front of it (red nearest, then yellow and green), so the pilot sees what fits between the vehicle's sides.
-Check **Vehicle width guides** in the camera's settings and press **Guide Settings...** to set them up in a window of their own, with a live preview:
+Check **Vehicle width guides** in the camera's settings and press **Guide Settings...** to set them up in a window of their own. Its preview shows the camera's live video with the lines when the camera can be reached (it keeps reconnecting if the stream drops), and a drawn stand-in until then:
 
 | Setting | Meaning |
 | ------- | ------- |
@@ -128,7 +128,7 @@ The buttons in a column at the right edge of the full-size video, between the in
 
 | Button | Action |
 | ------ | ------ |
-| Red circle | **Record** this stream into its own file; it turns into a square while recording, and a red dot appears next to the name. |
+| Red circle | **Record** this stream into its own file; it turns into a square while recording, and a red dot appears next to the name. If the stream is lost while recording, recording stays on (the dot blinks) and continues into a new file as soon as the stream is back. |
 | Camera | **Photo**: save the current frame of this stream (full-size video only). |
 | Speaker | **Camera audio** on/off: plays the camera's microphone through the computer's speakers. Dimmed while it connects. |
 | Microphone | **Talk** on/off: sends the computer's microphone to the camera's speaker; red while on (full-size video only). |

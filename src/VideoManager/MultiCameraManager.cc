@@ -10,6 +10,8 @@
 #include <QtCore/QSet>
 #include <QtCore/QSettings>
 #include <QtCore/QUrl>
+#include <QtCore/QUuid>
+#include <QtQml/QQmlEngine>
 
 #include "Fact.h"
 #include "LinkConfiguration.h"
@@ -206,12 +208,18 @@ void MultiCameraManager::setBackendReady()
     for (int i = 0; i < _streams.count(); i++) {
         _streams.value<MultiCameraStream*>(i)->setBackendReady(true);
     }
+    for (MultiCameraStream* const preview : std::as_const(_previews)) {
+        preview->setBackendReady(true);
+    }
 }
 
 void MultiCameraManager::cleanup()
 {
     _rebuildTimer.stop();
     _backendReady = false;
+    while (!_previews.isEmpty()) {
+        stopPreview(_previews.constLast());
+    }
     while (_streams.count() > 0) {
         _removeStream(_streams.value<MultiCameraStream*>(_streams.count() - 1));
     }
@@ -367,6 +375,33 @@ QString MultiCameraManager::manualStreamUri(const QJsonObject& entry)
 {
     const QUrl url = manualStreamUrl(entry);
     return url.isValid() ? url.toString(QUrl::FullyEncoded) : QString();
+}
+
+MultiCameraStream* MultiCameraManager::startPreview(const QVariantMap& entry)
+{
+    const QString uri = manualStreamUri(QJsonObject::fromVariantMap(entry));
+    if (uri.isEmpty()) {
+        return nullptr;
+    }
+
+    auto* const stream = new MultiCameraStream(
+        QStringLiteral("preview:%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)), 0, false, this);
+    QQmlEngine::setObjectOwnership(stream, QQmlEngine::CppOwnership);
+    stream->setLabel(entry.value(QStringLiteral("name")).toString());
+    stream->setAlwaysReconnect(true);
+    stream->setUri(uri);
+    stream->setBackendReady(_backendReady);
+    _previews.append(stream);
+    return stream;
+}
+
+void MultiCameraManager::stopPreview(MultiCameraStream* stream)
+{
+    if (!stream || !_previews.removeOne(stream)) {
+        return;
+    }
+    stream->releaseReceiver();
+    stream->deleteLater();
 }
 
 QString MultiCameraManager::manualStreamPreview(const QVariantMap& entry) const

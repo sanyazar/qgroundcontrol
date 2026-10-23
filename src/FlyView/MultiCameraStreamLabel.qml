@@ -33,6 +33,16 @@ Rectangle {
             radius:                 width / 2
             color:                  qgcPal.colorRed
             visible:                !!control.stream && control.stream.recording
+
+            // Blinks while recording waits for a lost stream to come back.
+            SequentialAnimation on opacity {
+                running:    !!control.stream && control.stream.recordingPaused
+                loops:      Animation.Infinite
+                onStopped:  parent.opacity = 1
+
+                NumberAnimation { to: 0.15; duration: 500 }
+                NumberAnimation { to: 1; duration: 500 }
+            }
         }
 
         QGCLabel {

@@ -320,7 +320,7 @@ ColumnLayout {
                         enabled: entryCard.modelData.guidesEnabled === true
                         onClicked: guidesDialogFactory.open({ title: qsTr("Guides: %1").arg(entryCard.modelData.name || ""),
                                                               entryIndex: entryCard.index,
-                                                              initialGuides: entryCard.modelData.guides || {} })
+                                                              entry: entryCard.modelData })
                     }
                 }
 
