@@ -11,7 +11,7 @@ fi
 dir=$1
 : "${CI_API_V4_URL:?}" "${CI_PROJECT_ID:?}" "${CI_COMMIT_TAG:?}" "${CI_JOB_TOKEN:?}"
 
-registry="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/qgroundcontrol-bastion/${CI_COMMIT_TAG#v}"
+registry="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/qgroundcontrol-bastion/${CI_COMMIT_TAG#bastion-v}"
 links_file=$(mktemp)
 trap 'rm -f "${links_file}"' EXIT
 
@@ -38,7 +38,7 @@ with open(sys.argv[1], encoding="utf-8") as f:
         links.append({"name": name, "url": url, "link_type": "package"})
 tag = os.environ["CI_COMMIT_TAG"]
 print(json.dumps({
-    "name": f"QGroundControl Bastion {tag}",
+    "name": f"QGroundControl-Bastion {tag.removeprefix('bastion-v')}",
     "tag_name": tag,
     "description": f"Packages built from {tag}.",
     "assets": {"links": links},

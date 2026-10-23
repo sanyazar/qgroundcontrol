@@ -106,7 +106,13 @@
 
 ### Ubuntu `.deb`
 
-Наявний Linux-образ на Ubuntu вже збирає `.deb` поруч з AppImage:
+У CI `.deb` робиться з AppImage (див. [Пайплайн](#пайплайн-gitlab-ciyml)); локально те саме:
+
+```bash
+python3 deploy/ci/deb_from_appimage.py QGroundControl-Bastion-*-x86_64.AppImage build-deb "$(deploy/ci/version.sh)"
+```
+
+Нативний `.deb` під конкретний реліз Ubuntu збирає Linux-образ поруч з AppImage:
 
 ```bash
 python3 deploy/docker/run_docker.py build ubuntu       # Ubuntu 24.04
@@ -188,25 +194,55 @@ cmake --build --preset Windows-msi --target qgc-package
 
 ### Пайплайн `.gitlab-ci.yml`
 
-Етапи: спершу паралельно `appimage`, `apk` і `msi` (кожен — окремий артефакт); коли `appimage` успішний, паралельно збираються `deb` для трьох релізів Ubuntu.
+Етапи: спершу паралельно `appimage`, `apk` і `msi` (кожен — окремий артефакт); коли AppImage готовий, `deb` перепаковує його в `.deb` без повторної збірки (1–2 хв). Нативні `.deb` під конкретний реліз Ubuntu — ручні jobs `deb-native`.
 
 | Job | Етап | Раннер | Результат (артефакти, 30 днів) |
 | --- | ---- | ------ | ------------------------------ |
-| `appimage` | build | `bastion-linux` | `QGroundControl-Bastion-x86_64.AppImage` + `.sha256` (зібрано на Ubuntu 22.04) |
-| `apk` | build | `bastion-linux` | `QGroundControl-Bastion.apk` (підписаний) + `.sha256` |
-| `msi` | build | `bastion-windows` | `QGroundControl-Bastion-<версія>-AMD64.msi` + `.sha256` |
-| `deb: [ubuntu-2204, 22.04]` / `[ubuntu, 24.04]` / `[ubuntu-2604, 26.04]` | packages | `bastion-linux` | `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb` + `.sha256` |
-| `release` (лише для тегів `vX.Y.Z`) | release | `bastion-linux` | Пакети в **Deploy → Package registry** і реліз у **Deploy → Releases** |
+| `appimage` | build | `bastion-linux` | `QGroundControl-Bastion-<версія>-x86_64.AppImage` + `.sha256` (зібрано на Ubuntu 22.04) |
+| `apk` | build | `bastion-linux` | `QGroundControl-Bastion-<версія>.apk` (підписаний) + `.sha256` |
+| `msi` | build | `bastion-windows` | `QGroundControl-Bastion-<версія QGC>-AMD64.msi` + `.sha256` |
+| `deb` | packages | `bastion-linux` | `qgroundcontrol-bastion_<версія>_amd64.deb` + `.sha256` — один пакет для Ubuntu 22.04, 24.04 і 26.04 |
+| `deb-native: [ubuntu-2204, 22.04]` / `[ubuntu, 24.04]` / `[ubuntu-2604, 26.04]` (вручну ▶) | packages | `bastion-linux` | `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb` + `.sha256` |
+| `release` (лише для тегів `bastion-vX.Y.Z`) | release | `bastion-linux` | Пакети в **Deploy → Package registry** і реліз у **Deploy → Releases** |
+
+**`deb` з AppImage** (`deploy/ci/deb_from_appimage.py`): вміст AppImage (Qt, GStreamer з плагінами, кодеки) розпаковується в `/opt/QGroundControl-Bastion` і запускається через його `AppRun`; `/usr/bin/QGroundControl-Bastion`, ярлик меню, іконки й metainfo — у стандартних місцях. Залежності — лише бібліотеки, які AppImage свідомо бере з системи (glibc, драйвери GL/EGL, X11/XCB, шрифти); їхні назви однакові в 22.04–26.04 (для перейменованих у 24.04 — альтернативи `libasound2 | libasound2t64`). Якщо AppImage почне вимагати нову системну бібліотеку, job впаде з її назвою — додайте її в таблицю `REQUIRED`/`OPTIONAL` у скрипті.
+
+**`deb-native`** компілюється в Docker-образі вибраного релізу й використовує системні ffmpeg/GStreamer — менший пакет, але лише для свого релізу. Запуск: **Build → Pipelines →** пайплайн **→** кнопка ▶ біля потрібного `deb-native`. Jobs не чекають на інші етапи й не блокують пайплайн.
 
 Linux-jobs ідуть паралельно, тому кожен Linux-раннер має мати власний том для dind (`/var/lib/docker`).
 
-Запускається пушем, що змінює код/збірку (зміни лише в документації не запускають), кнопкою **Build → Pipelines → Run pipeline** і тегом:
+Запускається пушем, що змінює код/збірку (зміни лише в документації не запускають), кнопкою **Build → Pipelines → Run pipeline** і тегом релізу форку (див. [Версії](#версії)).
 
-```bash
-git tag v5.2.1 && git push gitlab v5.2.1
+### Версії
+
+Версію рахує `deploy/ci/version.sh`:
+
+```text
+<версія QGC>+bastion<версія форку>[~<гілка>]-<номер пайплайна>
+5.2.0~dev+bastion0.1.0~feat-multi-camera-57     збірка з робочої гілки
+5.2.0~dev+bastion0.1.0-58                       реліз bastion-v0.1.0
+5.2.1+bastion0.2.0-73                           після оновлення з upstream 5.2.1 і релізу форку 0.2.0
 ```
 
-Скрипти: `deploy/ci/finalize-deb.sh` (перевірка й назва `.deb`), `deploy/ci/sign-apk-docker.sh` (підпис APK у Docker-образі), `deploy/ci/build-msi.ps1` (Qt, WiX, MSVC, збірка MSI), `deploy/ci/publish-release.sh` (реліз через API GitLab).
+| Частина | Звідки | Коли змінюється |
+| ------- | ------ | --------------- |
+| версія QGC | найближчий тег upstream `vX.Y.Z[-dev]` (`git describe`); `-dev` → `~dev`, тож знімок розробки старший за попередній реліз, але молодший за `X.Y.Z` | при оновленні з upstream |
+| версія форку | файл `BASTION_VERSION` (semver) | вручну: MAJOR — несумісні зміни (налаштування, формат), MINOR — нові можливості, PATCH — виправлення |
+| `~<гілка>` | `CI_COMMIT_REF_SLUG`, лише для гілок, крім гілки за замовчуванням, і не для тегів | `~` сортується раніше, тож реліз тієї самої версії завжди новіший за збірки з гілки |
+| номер пайплайна | `CI_PIPELINE_IID` — ревізія Debian | кожен пайплайн, тож `apt` завжди бачить новішу збірку |
+
+Порядок для `apt`/`dpkg`: спершу версія QGC, потім версія форку, потім гілка, потім пайплайн. Номер коміту й пайплайна є в описі пакета з AppImage (`apt show qgroundcontrol-bastion`). Та сама версія в назвах AppImage і APK; MSI лишає числову версію QGC, бо Windows Installer приймає лише `X.Y.Z` з малими числами.
+
+Реліз форку: підняти `BASTION_VERSION`, закомітити й поставити тег `bastion-v<та сама версія>` (теги `vX.Y.Z` — це теги оригінального QGC):
+
+```bash
+echo 0.2.0 > BASTION_VERSION && git commit -am "chore: release 0.2.0"
+git tag bastion-v0.2.0 && git push gitlab HEAD bastion-v0.2.0
+```
+
+Job `release` перевіряє, що тег і `BASTION_VERSION` збігаються.
+
+Скрипти: `deploy/ci/version.sh` (версія), `deploy/ci/deb_from_appimage.py` (`.deb` з AppImage), `deploy/ci/finalize-deb.sh` (перевірка, версія й назва нативного `.deb`), `deploy/ci/sign-apk-docker.sh` (підпис APK у Docker-образі), `deploy/ci/build-msi.ps1` (Qt, WiX, MSVC, збірка MSI), `deploy/ci/publish-release.sh` (реліз через API GitLab).
 Linux-збірки йдуть у тих самих Docker-образах, що й локально; кеші (`.ccache`, `.cache/CPM`), Python-середовище й папка збірки MSI зберігаються між запусками.
 Версія пакета береться з `git describe`; якщо теги не запушено, CI підтягує теги `v*` з `mavlink/qgroundcontrol`.
 
