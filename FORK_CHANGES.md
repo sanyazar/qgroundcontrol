@@ -163,7 +163,9 @@ cmake --build --preset Windows-msi --target qgc-package
 
 ## 4. Репозиторій і CI в GitLab
 
-Основний репозиторій — self-hosted GitLab у локальній мережі. GitHub-форк `sanyazar/qgroundcontrol` більше не оновлюється.
+Основний репозиторій — self-hosted GitLab (`https://basta.zar.in.ua/bastion/qgroundcontrol-bastion`, у локальній мережі й ззовні).
+
+Гілки: `main` — чистий upstream QGroundControl, доки зміни форку не завершено; `feat/multi-camera` — уся робота форку (мультикамера, пакування Bastion, GitLab CI), пайплайни збирають її; `upstream-master` — копія `master` з `mavlink/qgroundcontrol`. GitHub-форк `sanyazar/qgroundcontrol` більше не оновлюється.
 
 ### Перенос репозиторію (один раз)
 
@@ -174,10 +176,11 @@ cmake --build --preset Windows-msi --target qgc-package
    cd ~/qgs/src/qgroundcontrol
    git fetch fork && git checkout feat/multi-camera && git pull --ff-only fork feat/multi-camera
    git remote add gitlab http://<адреса-gitlab>/<група>/qgroundcontrol-bastion.git
-   git push gitlab feat/multi-camera:main      # основна гілка в GitLab
+   git push gitlab feat/multi-camera           # робоча гілка з усіма змінами
+   git push gitlab master:main                 # main = чистий upstream
    git push gitlab --tags                      # теги версій upstream: потрібні для номера версії пакетів
    git push gitlab master:upstream-master      # оригінальний QGC — для майбутніх оновлень
-   git branch -u gitlab/main feat/multi-camera # далі git pull/push іде в GitLab
+   git branch -u gitlab/feat/multi-camera      # далі git pull/push іде в GitLab
    ```
 
    Якщо HTTP-пуш великого репозиторію обривається: `git config http.postBuffer 524288000` і повторити (або SSH-адреса).
@@ -280,6 +283,6 @@ git remote add upstream https://github.com/mavlink/qgroundcontrol.git   # оди
 git fetch upstream --tags
 git checkout feat/multi-camera
 git rebase upstream/master   # конфлікти найімовірніші у VideoManager.cc, FlyViewVideo.qml, FlyView.qml, Video.SettingsUI.json
-git push --force-with-lease gitlab feat/multi-camera:main
-git push gitlab upstream/master:upstream-master --tags
+git push --force-with-lease gitlab feat/multi-camera
+git push gitlab upstream/master:upstream-master upstream/master:main --tags
 ```
