@@ -4,8 +4,8 @@ import QtQuick.Controls
 import QGroundControl
 import QGroundControl.Controls
 
-/// Buttons for one MultiCameraManager stream: record, photo, camera audio, talk to the camera and open in a
-/// separate window, in a row or (vertical) a column. Which buttons show is chosen by the show* properties;
+/// Buttons for one MultiCameraManager stream: record, photo, camera audio, talk to the camera, open in a
+/// separate window and remove from the view, in a row or (vertical) a column. Which buttons show is chosen by the show* properties;
 /// record and photo need video.
 Grid {
     id: control
@@ -15,12 +15,13 @@ Grid {
     property bool showPhoto:        true
     property bool showTalk:         true
     property bool showWindow:       false
+    property bool showHide:         false
     property bool vertical:         false
 
     /// The "open in a separate window" button was pressed.
     signal openWindowClicked()
 
-    columns:    vertical ? 1 : 5
+    columns:    vertical ? 1 : 6
     spacing:    buttonSize / 4
 
     readonly property bool _decoding:   !!stream && stream.decoding
@@ -135,5 +136,14 @@ Grid {
         iconSource: "/InstrumentValueIcons/window-new.svg"
         toolTip:    enabled ? qsTr("Open in a separate window") : qsTr("Stop recording to open in a separate window")
         onClicked:  control.openWindowClicked()
+    }
+
+    // Remove from the view; the hidden-cameras button next to the camera blocks brings it back.
+    CircleButton {
+        size:       control.buttonSize
+        visible:    control.showHide && !!control.stream
+        iconSource: "/InstrumentValueIcons/view-hide.svg"
+        toolTip:    qsTr("Remove from the view")
+        onClicked:  QGroundControl.videoManager.multiCamera.hideStream(control.stream.key)
     }
 }

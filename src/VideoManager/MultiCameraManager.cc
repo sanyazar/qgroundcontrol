@@ -7,6 +7,7 @@
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QSet>
+#include <QtCore/QSettings>
 #include <QtCore/QUrl>
 
 #include "Fact.h"
@@ -32,6 +33,7 @@ namespace {
 // Camera and stream discovery arrive as bursts of signals; coalesce them into one rebuild.
 constexpr std::chrono::milliseconds kRebuildDelay{250};
 constexpr int kDefaultRtspPort = 554;
+const QString kHiddenStreamsSettingsKey = QStringLiteral("MultiCamera/hiddenStreams");
 
 // Vendor RTSP layouts; channel is 1-based (NVR channel or 1 for a single camera).
 QString presetPath(const QString& type, int channel, bool subStream, QString* query)
@@ -119,6 +121,10 @@ MultiCameraManager::MultiCameraManager(QObject* parent)
     _rebuildTimer.setSingleShot(true);
     _rebuildTimer.setInterval(kRebuildDelay);
     (void) connect(&_rebuildTimer, &QTimer::timeout, this, &MultiCameraManager::_rebuild);
+
+    QSettings settings;
+    const QStringList hidden = settings.value(kHiddenStreamsSettingsKey).toStringList();
+    _hiddenKeys = QSet<QString>(hidden.cbegin(), hidden.cend());
 }
 
 MultiCameraManager::~MultiCameraManager()
@@ -179,6 +185,45 @@ void MultiCameraManager::cleanup()
 bool MultiCameraManager::enabled() const
 {
     return _videoSettings->multiCameraEnabled()->rawValue().toBool();
+}
+
+void MultiCameraManager::hideStream(const QString& key)
+{
+    if (key.isEmpty() || _hiddenKeys.contains(key)) {
+        return;
+    }
+    _hiddenKeys.insert(key);
+    _saveHiddenKeys();
+    _rebuild();
+}
+
+void MultiCameraManager::showStream(const QString& key)
+{
+    if (_hiddenKeys.remove(key)) {
+        _saveHiddenKeys();
+        _rebuild();
+    }
+}
+
+void MultiCameraManager::showAllStreams()
+{
+    if (!_hiddenKeys.isEmpty()) {
+        _hiddenKeys.clear();
+        _saveHiddenKeys();
+        _rebuild();
+    }
+}
+
+void MultiCameraManager::_saveHiddenKeys() const
+{
+    QSettings settings;
+    if (_hiddenKeys.isEmpty()) {
+        settings.remove(kHiddenStreamsSettingsKey);
+    } else {
+        QStringList keys(_hiddenKeys.cbegin(), _hiddenKeys.cend());
+        keys.sort();
+        settings.setValue(kHiddenStreamsSettingsKey, keys);
+    }
 }
 
 int MultiCameraManager::mainIndex() const
@@ -448,10 +493,17 @@ QList<MultiCameraManager::StreamSpec> MultiCameraManager::_collectStreams()
 
     const int maxStreams = qMax(1, _videoSettings->multiCameraMaxStreams()->rawValue().toInt());
     QList<StreamSpec> result;
+    QVariantList hidden;
     QSet<QString> usedUris;
     for (const StreamSpec& spec : std::as_const(candidates)) {
         // Two receivers on one UDP port or RTSP session would fight; the manual entry wins.
         if (usedUris.contains(spec.uri)) {
+            continue;
+        }
+        // Hidden streams are listed for the "show again" menu and do not count against the limit.
+        if (_hiddenKeys.contains(spec.key)) {
+            usedUris.insert(spec.uri);
+            hidden.append(QVariantMap{{QStringLiteral("key"), spec.key}, {QStringLiteral("label"), spec.label}});
             continue;
         }
         if (result.count() >= maxStreams) {
@@ -460,6 +512,10 @@ QList<MultiCameraManager::StreamSpec> MultiCameraManager::_collectStreams()
         }
         usedUris.insert(spec.uri);
         result.append(spec);
+    }
+    if (hidden != _hiddenStreams) {
+        _hiddenStreams = hidden;
+        emit hiddenStreamsChanged();
     }
     return result;
 }
@@ -506,6 +562,10 @@ void MultiCameraManager::_requestMavlinkStreamStart(const StreamSpec& spec) cons
 void MultiCameraManager::_rebuild()
 {
     const QList<StreamSpec> specs = enabled() ? _collectStreams() : QList<StreamSpec>();
+    if (!enabled() && !_hiddenStreams.isEmpty()) {
+        _hiddenStreams.clear();
+        emit hiddenStreamsChanged();
+    }
     const int oldMainIndex = mainIndex();
     bool changed = false;
 

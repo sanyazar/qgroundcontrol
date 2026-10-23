@@ -199,6 +199,7 @@ Item {
                     stream:                 tile.stream
                     buttonSize:             root._buttonSize
                     showWindow:             true
+                    showHide:               true
                     onOpenWindowClicked:    tile.openWindow()
                 }
 
@@ -212,6 +213,7 @@ Item {
                     showPhoto:              false
                     showTalk:               false
                     showWindow:             true
+                    showHide:               true
                     onOpenWindowClicked:    tile.openWindow()
                 }
 

@@ -2,7 +2,9 @@
 
 #include <QtCore/QJsonObject>
 #include <QtCore/QObject>
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
+#include <QtCore/QVariantList>
 #include <QtCore/QVariantMap>
 #include <QtQmlIntegration/QtQmlIntegration>
 
@@ -28,6 +30,8 @@ class MultiCameraManager : public QObject
     Q_PROPERTY(QmlObjectListModel* streams READ streams CONSTANT)
     Q_PROPERTY(int mainIndex READ mainIndex WRITE setMainIndex NOTIFY mainIndexChanged)
     Q_PROPERTY(MultiCameraStream* mainStream READ mainStream NOTIFY mainIndexChanged)
+    /// Streams the user removed from the view, as {key, label} maps; they are not decoded until shown again.
+    Q_PROPERTY(QVariantList hiddenStreams READ hiddenStreams NOTIFY hiddenStreamsChanged)
 
 public:
     explicit MultiCameraManager(QObject* parent = nullptr);
@@ -36,6 +40,11 @@ public:
     /// Stops every stream, e.g. while the video window moves between windows.
     Q_INVOKABLE void stopAll();
     Q_INVOKABLE void restartAll();
+
+    /// Removes a stream from the view (remembered across restarts) or brings it back.
+    Q_INVOKABLE void hideStream(const QString& key);
+    Q_INVOKABLE void showStream(const QString& key);
+    Q_INVOKABLE void showAllStreams();
 
     void init();
     /// Called by VideoManager once the video backend can create receivers.
@@ -51,6 +60,8 @@ public:
     void setMainIndex(int index);
     MultiCameraStream* mainStream() const;
 
+    QVariantList hiddenStreams() const { return _hiddenStreams; }
+
     /// Receiver URI for a MAVLink VIDEO_STREAM_INFORMATION, in the same form VideoManager uses.
     static QString uriForStreamInfo(const QGCVideoStreamInfo* info);
 
@@ -64,6 +75,7 @@ public:
 signals:
     void enabledChanged();
     void mainIndexChanged();
+    void hiddenStreamsChanged();
 
 private slots:
     void _scheduleRebuild();
@@ -88,12 +100,15 @@ private:
     void _rebuild();
     void _removeStream(MultiCameraStream* stream);
     MultiCameraStream* _findStream(const QString& key) const;
+    void _saveHiddenKeys() const;
     void _requestMavlinkStreamStart(const StreamSpec& spec) const;
 
     VideoSettings* _videoSettings = nullptr;
     QmlObjectListModel _streams;
     QTimer _rebuildTimer;
     QString _mainKey;
+    QSet<QString> _hiddenKeys;
+    QVariantList _hiddenStreams;
     bool _backendReady = false;
     bool _initialized = false;
 };

@@ -114,6 +114,43 @@ void MultiCameraManagerTest::_testManualStreams()
     QCOMPARE(manager.mainIndex(), -1);
 }
 
+void MultiCameraManagerTest::_testHiddenStreams()
+{
+    VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
+    MultiCameraManager manager;
+    manager.init();
+    manager.showAllStreams();
+
+    videoSettings->multiCameraStreams()->setRawValue(
+        QStringLiteral(R"([{"vehicleId":1,"name":"Front","uri":"rtsp://10.0.0.2/front"},)"
+                       R"({"vehicleId":1,"name":"Down","uri":"udp://0.0.0.0:5600"}])"));
+    videoSettings->multiCameraMaxStreams()->setRawValue(1);
+    videoSettings->multiCameraEnabled()->setRawValue(true);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 1, kRebuildTimeoutMs);
+    const QString frontKey = manager.streams()->value<MultiCameraStream*>(0)->key();
+
+    // A hidden stream leaves the view, is listed for showing again and frees its slot under the limit.
+    manager.hideStream(frontKey);
+    QCOMPARE(manager.streams()->count(), 1);
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(0)->uri(), QStringLiteral("udp://0.0.0.0:5600"));
+    QCOMPARE(manager.hiddenStreams().count(), 1);
+    QCOMPARE(manager.hiddenStreams().constFirst().toMap().value(QStringLiteral("key")).toString(), frontKey);
+
+    // Remembered by a new manager (next start).
+    {
+        MultiCameraManager other;
+        other.init();
+        QTRY_COMPARE_WITH_TIMEOUT(other.hiddenStreams().count(), 1, kRebuildTimeoutMs);
+    }
+
+    manager.showStream(frontKey);
+    QCOMPARE(manager.hiddenStreams().count(), 0);
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(0)->key(), frontKey);
+
+    videoSettings->multiCameraEnabled()->setRawValue(false);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
+}
+
 void MultiCameraManagerTest::_testCameraPresetUris_data()
 {
     QTest::addColumn<QString>("entryJson");

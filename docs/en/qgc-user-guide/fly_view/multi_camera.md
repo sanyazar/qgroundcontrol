@@ -96,6 +96,8 @@ The row shrinks its blocks when there are many cameras, and the Fly View control
 - **Show a camera full size** — click its block. If the map was full size, it moves into the picture-in-picture block. Streams keep running while you switch, so there is no reconnect delay.
 - **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
 - **Resize the blocks** — drag the resize handle of the picture-in-picture block; the camera blocks follow its size.
+- **Move the blocks** — drag the handle (six dots) on the top edge of the picture-in-picture block: the block, the camera blocks next to it and the hidden-cameras button move together to any place in the window, which is remembered.
+- **Hide the blocks** — the arrow button of the picture-in-picture block collapses it, and the camera blocks are hidden with it; the restore button brings them all back.
 - **Full screen** — double-click the full-size camera (requires a connected vehicle).
 - **Camera name** — shown in bold in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.
 
@@ -108,6 +110,10 @@ The buttons in a column at the right edge of the full-size video, between the in
 | Speaker | **Camera audio** on/off: plays the camera's microphone through the computer's speakers. Dimmed while it connects. |
 | Microphone | **Talk** on/off: sends the computer's microphone to the camera's speaker; red while on (full-size video only). |
 | Window | **Separate window**: shows the stream in a window of its own, for example on a second monitor (desktop only). |
+| Crossed-out eye | **Remove from the view**: the camera is no longer shown or decoded (remembered across restarts). |
+
+Removed cameras are counted on a button (crossed-out eye and a number) after the camera blocks; its menu shows each removed camera again, or all of them.
+A removed camera does not count against **Maximum streams**.
 
 The record and photo buttons are shown once a stream is decoding.
 A block shows **WAITING FOR VIDEO** until the first frame arrives, and the view shows **NO CAMERA STREAMS** when no stream is configured or discovered.

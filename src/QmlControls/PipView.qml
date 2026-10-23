@@ -14,6 +14,14 @@ Item {
     property var    item2:                  null    // Optional, may come and go
     property string item1IsFullSettingsKey          // Settings key to save whether item1 was saved in full mode
     property bool   show:                   true
+    /// Shows a drag handle on the top edge; the owner positions the PiP from moveBy() and keeps it there.
+    property bool   movable:                false
+    readonly property bool isExpanded:      _isExpanded
+
+    /// The drag handle moved by (dx, dy) in parent coordinates.
+    signal moveBy(real dx, real dy)
+    /// The drag handle was released.
+    signal moveFinished()
 
     // Area covering the parent, in PipView coordinates: just the restore button while collapsed
     readonly property rect occupiedRect: _isExpanded ? Qt.rect(0, 0, width, height) : Qt.rect(showPip.x, showPip.y, showPip.width, showPip.height)
@@ -164,6 +172,56 @@ Item {
         height:         ScreenTools.defaultFontPixelHeight * 2.5
         width:          ScreenTools.defaultFontPixelHeight * 2.5
         sourceSize.height:  height
+    }
+
+    // Drag handle to move the PiP
+    Rectangle {
+        id:                         moveHandle
+        anchors.top:                parent.top
+        anchors.horizontalCenter:   parent.horizontalCenter
+        width:                      ScreenTools.defaultFontPixelHeight * 2.5
+        height:                     ScreenTools.defaultFontPixelHeight * 1.25
+        radius:                     height / 4
+        color:                      Qt.rgba(0, 0, 0, 0.6)
+        visible:                    _root.movable && _isExpanded &&
+                                        (ScreenTools.isMobile || pipMouseArea.containsMouse || moveArea.pressed)
+
+        Grid {
+            anchors.centerIn:   parent
+            columns:            3
+            spacing:            ScreenTools.defaultFontPixelHeight * 0.2
+
+            Repeater {
+                model: 6
+
+                Rectangle {
+                    width:  ScreenTools.defaultFontPixelHeight * 0.2
+                    height: width
+                    radius: width / 2
+                    color:  "white"
+                }
+            }
+        }
+
+        MouseArea {
+            id:                 moveArea
+            anchors.fill:       parent
+            preventStealing:    true
+            cursorShape:        Qt.SizeAllCursor
+
+            property point _last
+
+            onPressed: (mouse) => moveArea._last = moveArea.mapToItem(_root.parent, mouse.x, mouse.y)
+            onPositionChanged: (mouse) => {
+                if (moveArea.pressed) {
+                    const position = moveArea.mapToItem(_root.parent, mouse.x, mouse.y)
+                    _root.moveBy(position.x - moveArea._last.x, position.y - moveArea._last.y)
+                    moveArea._last = position
+                }
+            }
+            onReleased:     _root.moveFinished()
+            onCanceled:     _root.moveFinished()
+        }
     }
 
     // Check min/max constraints on pip size when when parent is resized
