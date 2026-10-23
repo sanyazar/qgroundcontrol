@@ -44,14 +44,19 @@ variables:
 .linux:
   tags: [bastion-linux]
   before_script:
-    # Tag-less clones would package as 0.0.0; upstream tags are enough for git describe.
-    - git fetch --no-tags "$UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*" || echo "Upstream tags unavailable, using local tags"
     - |
+      if [ -f /.dockerenv ] || ! command -v git > /dev/null 2>&1; then
+        echo "This job needs a shell-executor runner on the build host, not a Docker-executor runner:"
+        echo "it builds its own Docker images. Register gitlab-runner with --executor shell and tag bastion-linux."
+        exit 1
+      fi
       if ! docker info > /dev/null 2>&1; then
         echo "Docker is not usable by the runner user $(id -un) (groups: $(id -Gn))."
         echo "Run: sudo usermod -aG docker $(id -un) && sudo gitlab-runner restart"
         exit 1
       fi
+    # Tag-less clones would package as 0.0.0; upstream tags are enough for git describe.
+    - git fetch --no-tags "$UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*" || echo "Upstream tags unavailable, using local tags"
 
 deb:
   extends: .linux

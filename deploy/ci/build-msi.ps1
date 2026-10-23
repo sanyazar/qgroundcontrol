@@ -21,12 +21,46 @@ function Invoke-Native {
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 
+# The runner service account does not see per-user installs (winget puts uv in the user's profile),
+# so look in the usual places and otherwise install uv into a machine-wide tools folder.
+function Resolve-Uv {
+    $command = Get-Command uv -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+    $toolsDir = Join-Path $env:SystemDrive 'ci-tools\uv'
+    $candidates = @(
+        (Join-Path $toolsDir 'uv.exe'),
+        (Join-Path $env:USERPROFILE '.local\bin\uv.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\uv.exe')
+    )
+    $candidates += Get-ChildItem -Path (Join-Path $env:SystemDrive 'Users\*\.local\bin\uv.exe'), `
+        (Join-Path $env:SystemDrive 'Users\*\AppData\Local\Microsoft\WinGet\Links\uv.exe') `
+        -ErrorAction SilentlyContinue | ForEach-Object FullName
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+    Write-Host "==> installing uv into $toolsDir"
+    $env:UV_INSTALL_DIR = $toolsDir
+    $env:UV_NO_MODIFY_PATH = '1'
+    Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
+    $uvExe = Join-Path $toolsDir 'uv.exe'
+    if (-not (Test-Path $uvExe)) {
+        throw "uv installation failed: $uvExe not found"
+    }
+    return $uvExe
+}
+$uv = Resolve-Uv
+Write-Host "Using uv: $uv"
+
 # Locked Python environment for QGC's generators, aqtinstall and the pinned CMake/Ninja.
 $venv = Join-Path $repo '.venv-ci'
 $env:UV_PROJECT_ENVIRONMENT = $venv
 $env:QGC_PYTHON_ENV = $venv
 Invoke-Native 'python environment' {
-    uv sync --project (Join-Path $repo 'tools') --python 3.12 --group scripts --group qt --group build `
+    & $uv sync --project (Join-Path $repo 'tools') --python 3.12 --group scripts --group qt --group build `
         --no-default-groups --no-install-project --frozen
 }
 $python = Join-Path $venv 'Scripts\python.exe'
