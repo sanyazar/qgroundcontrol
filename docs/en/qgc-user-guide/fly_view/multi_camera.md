@@ -31,7 +31,7 @@ Streams are added and removed automatically as vehicles connect and disconnect.
 
 Open **Application Settings > Comm Links**, edit the vehicle's link (or add a new one) and, below the link settings, press **Add Camera** in the **Cameras** section for each camera of that vehicle.
 All settings of one camera are grouped in one box; the fields are the same as for [Other Camera Streams](#other-camera-streams) except that no Vehicle ID is needed.
-The **Name** you give a camera is shown in the bottom right corner of its video, both in the main view and in the thumbnails.
+The **Name** you give a camera is shown in the top left corner of its video, both in the main view and in the camera blocks.
 
 The cameras are saved with the link and shown while the link is connected.
 If multi-camera mode is still off, the **Show cameras in the Fly View** switch below the camera list turns it on.
@@ -42,7 +42,7 @@ Each entry of the list describes one stream:
 
 - **Vehicle ID** — MAVLink system ID of the vehicle the camera is on (shown in the stream label).
   Use `0` for a stream that is not tied to a vehicle.
-- **Name** — label shown in the bottom right corner of the video, for example `Front` or `Thermal`.
+- **Name** — label shown in the top left corner of the video, for example `Front` or `Thermal`.
 - **Camera type** — **Dahua**, **Hikvision** or **Uniview (UNV)** to build the stream URL for you (see [Camera Presets](#camera-presets)), or **Custom URL** to enter it yourself.
 - **Stream URL** (Custom URL only) — one of:
 
@@ -97,13 +97,36 @@ The row shrinks its blocks when there are many cameras, and the Fly View control
 - **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
 - **Resize the blocks** — drag the resize handle of the picture-in-picture block; the camera blocks follow its size.
 - **Full screen** — double-click the full-size camera (requires a connected vehicle).
-- **Camera name** — shown in the bottom right corner of the full-size video and of every block.
-- **Record** — press the red circle next to the camera name to start recording that stream; it turns into a square while recording, and a red dot appears next to the name.
-  Each stream records into its own file.
-- **Photo** — press the camera icon next to it to save the current frame of that stream.
+- **Camera name** — shown in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.
 
-The record and photo buttons are shown once a stream is decoding (not on the picture-in-picture block).
+The buttons next to the camera name of the full-size video (a shorter set at the bottom of each block):
+
+| Button | Action |
+| ------ | ------ |
+| Red circle | **Record** this stream into its own file; it turns into a square while recording, and a red dot appears next to the name. |
+| Camera | **Photo**: save the current frame of this stream (full-size video only). |
+| Speaker | **Camera audio** on/off: plays the camera's microphone through the computer's speakers. Dimmed while it connects. |
+| Microphone | **Talk** on/off: sends the computer's microphone to the camera's speaker; red while on (full-size video only). |
+| Window | **Separate window**: shows the stream in a window of its own, for example on a second monitor (desktop only). |
+
+The record and photo buttons are shown once a stream is decoding.
 A block shows **WAITING FOR VIDEO** until the first frame arrives, and the view shows **NO CAMERA STREAMS** when no stream is configured or discovered.
+
+### Separate Windows
+
+A stream opened in a separate window keeps its record, photo, audio and talk buttons there; its block in the Fly View shows **Shown in a separate window**.
+Close the window to bring the video back. Moving the video to or from a window restarts the stream for a moment, so the button is disabled while that stream records.
+
+### Camera Audio and Talking to the Camera
+
+Audio works for RTSP cameras (the Dahua, Hikvision and Uniview presets and custom `rtsp://` URLs).
+_QGroundControl_ opens a second RTSP session to the camera for audio only, so switching audio on or off never interrupts the video.
+
+- **Camera audio** plays the first audio track the camera offers. Enable audio in the camera's own settings (on Dahua/Hikvision/Uniview: the stream's audio or "audio and video" option).
+- **Talk** uses the ONVIF audio backchannel (ONVIF Profile T, G.711 μ-law or A-law), which Dahua, Uniview and most current ONVIF cameras support; the camera needs a speaker (or audio output) and ONVIF enabled. Some Hikvision models only offer two-way audio through their own ISAPI protocol, which is not supported.
+- Audio uses the system's default microphone and speakers. On Android and macOS the system asks for microphone access the first time.
+
+If the camera has no audio track or no backchannel, the button switches off again and a message names the reason.
 
 ### Saved Files
 
@@ -118,6 +141,7 @@ The stream label is part of the file name, so recordings from different cameras 
 
 ## Limitations
 
+- Audio is not available for UDP or TCP streams, and recordings contain video only.
 - On-screen gimbal control and camera tracking by clicking the video are disabled in multi-camera mode, because the main stream may belong to a vehicle other than the active one.
 - Telemetry subtitle files are not written for multi-camera recordings.
 - Streams use the shared **Low Latency Mode**, **RTP jitter buffer**, **RTSP timeout** and **auto-reconnect** settings from **Application Settings > Video**.
