@@ -6,6 +6,7 @@
 #include <QtCore/QString>
 #include <QtQmlIntegration/QtQmlIntegration>
 
+class GstCameraAudio;
 class QQuickItem;
 class VideoReceiver;
 
@@ -26,6 +27,14 @@ class MultiCameraStream : public QObject
     Q_PROPERTY(bool decoding READ decoding NOTIFY decodingChanged)
     Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
     Q_PROPERTY(QSize videoSize READ videoSize NOTIFY videoSizeChanged)
+    /// Camera audio and talkback need an RTSP stream (and GStreamer).
+    Q_PROPERTY(bool audioSupported READ audioSupported NOTIFY uriChanged)
+    /// The user wants to hear the camera; audioPlaying once its audio actually plays.
+    Q_PROPERTY(bool audioEnabled READ audioEnabled WRITE setAudioEnabled NOTIFY audioEnabledChanged)
+    Q_PROPERTY(bool audioPlaying READ audioPlaying NOTIFY audioPlayingChanged)
+    /// The user wants to talk through the camera's speaker; talkbackActive once the microphone is streaming.
+    Q_PROPERTY(bool talkbackEnabled READ talkbackEnabled WRITE setTalkbackEnabled NOTIFY talkbackEnabledChanged)
+    Q_PROPERTY(bool talkbackActive READ talkbackActive NOTIFY talkbackActiveChanged)
 
 public:
     MultiCameraStream(const QString& key, int vehicleId, bool fromMavlink, QObject* parent = nullptr);
@@ -57,6 +66,20 @@ public:
 
     QSize videoSize() const { return _videoSize; }
 
+    bool audioSupported() const;
+
+    bool audioEnabled() const { return _audioEnabled; }
+
+    void setAudioEnabled(bool enabled);
+
+    bool audioPlaying() const { return _audioPlaying; }
+
+    bool talkbackEnabled() const { return _talkbackEnabled; }
+
+    void setTalkbackEnabled(bool enabled);
+
+    bool talkbackActive() const { return _talkbackActive; }
+
     void setLabel(const QString& label);
     void setUri(const QString& uri);
     void setBackendReady(bool ready);
@@ -72,9 +95,17 @@ signals:
     void decodingChanged();
     void recordingChanged();
     void videoSizeChanged();
+    void audioEnabledChanged();
+    void audioPlayingChanged();
+    void talkbackEnabledChanged();
+    void talkbackActiveChanged();
 
 private:
     void _createReceiver();
+    void _updateAudio();
+    void _applyTalkbackEnabled(bool enabled);
+    void _setAudioPlaying(bool playing);
+    void _setTalkbackActive(bool active);
     void _connectReceiver();
     void _startReceiver();
     void _setStreaming(bool streaming);
@@ -96,4 +127,10 @@ private:
     bool _decoding = false;
     bool _recording = false;
     QSize _videoSize;
+
+    GstCameraAudio* _audio = nullptr;  ///< Created on first use; only with GStreamer.
+    bool _audioEnabled = false;
+    bool _audioPlaying = false;
+    bool _talkbackEnabled = false;
+    bool _talkbackActive = false;
 };

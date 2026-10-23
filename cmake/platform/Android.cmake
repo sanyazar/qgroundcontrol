@@ -178,6 +178,9 @@ qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.MANAGE_E
 # Joystick
 qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.VIBRATE)
 
+# Talking to a camera's speaker (multi-camera talkback)
+qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.RECORD_AUDIO)
+
 qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.INTERNET)
 qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.WAKE_LOCK)
 qt_add_android_permission(${CMAKE_PROJECT_NAME} NAME android.permission.ACCESS_NETWORK_STATE)

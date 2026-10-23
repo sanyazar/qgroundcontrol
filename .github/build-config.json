@@ -58,28 +58,39 @@
         "vpx",
         "videoconvertscale",
         "videoconvert",
-        "videoscale"
+        "videoscale",
+        "alaw",
+        "audioconvert",
+        "audioresample",
+        "autodetect",
+        "mulaw"
       ],
       "android": [
         "androidmedia",
-        "dav1d"
+        "dav1d",
+        "opensles"
       ],
       "apple": [
         "applemedia",
-        "dav1d"
+        "dav1d",
+        "osxaudio"
       ],
       "windows": [
         "d3d",
         "d3d11",
         "d3d12",
         "dav1d",
-        "nvcodec"
+        "nvcodec",
+        "wasapi",
+        "wasapi2"
       ],
       "linux": [
         "nvcodec",
         "qsv",
         "va",
-        "vulkan"
+        "vulkan",
+        "alsa",
+        "pulseaudio"
       ]
     },
     "checksums": {

@@ -16,6 +16,10 @@ Item {
     property real stripTileWidth: ScreenTools.defaultFontPixelHeight * 10
     property real stripTileHeight: stripTileWidth * 9 / 16
     property real stripSpacing: ScreenTools.defaultFontPixelWidth * 0.75
+    /// Free corner of the main (full size) camera for its name and buttons, clear of the Fly View's toolbar
+    /// and tool strip; FlyView sets it.
+    property real mainOverlayLeft:  _margin
+    property real mainOverlayTop:   _margin
 
     /// A camera block other than the main one was clicked; it is now the main camera.
     signal cameraSelected()
@@ -26,7 +30,8 @@ Item {
     readonly property real _margin:         ScreenTools.defaultFontPixelWidth
     /// Number of camera blocks in stripHost (every camera except the main one).
     readonly property int  stripCount:      stripHost ? Math.max(0, _streamCount - 1) : 0
-    readonly property real _buttonSize:     ScreenTools.defaultFontPixelHeight * (compact ? 1.5 : 2)
+    readonly property real _buttonSize:     ScreenTools.defaultFontPixelHeight * 2
+    readonly property real _stripButtonSize: ScreenTools.defaultFontPixelHeight * 1.3
 
     QGCPalette { id: qgcPal }
 
@@ -42,6 +47,12 @@ Item {
         color:              "white"
         font.bold:          true
         font.pointSize:     root.compact ? ScreenTools.smallFontPointSize : ScreenTools.largeFontPointSize
+    }
+
+    Component {
+        id: streamWindowComponent
+
+        MultiCameraStreamWindow { }
     }
 
     Repeater {
@@ -63,6 +74,35 @@ Item {
                 readonly property int  thumbSlot:   index < root._mainIndex ? index : index - 1
 
                 readonly property bool inStrip:     !isMain && !!root.stripHost
+                readonly property bool showsFullControls: isMain && !root.compact
+                /// The separate window this stream is shown in, or null.
+                property var streamWindow: null
+
+                function openWindow() {
+                    if (tile.streamWindow) {
+                        tile.streamWindow.raise()
+                        tile.streamWindow.requestActivate()
+                        return
+                    }
+                    const popup = streamWindowComponent.createObject(null, { stream: tile.stream })
+                    if (!popup) {
+                        console.warn("MultiCameraView: could not open the stream window")
+                        return
+                    }
+                    popup.videoReleased.connect(tile._windowClosed)
+                    tile.streamWindow = popup
+                }
+
+                function _windowClosed() {
+                    const popup = tile.streamWindow
+                    tile.streamWindow = null
+                    if (tile.stream) {
+                        tile.stream.attachVideoOutput(videoOutput)
+                    }
+                    if (popup) {
+                        popup.destroy()
+                    }
+                }
 
                 parent:         inStrip ? root.stripHost : root
                 anchors.fill:   isMain ? parent : undefined
@@ -88,7 +128,7 @@ Item {
 
                 QGCLabel {
                     anchors.centerIn:   parent
-                    visible:            !(tile.stream && tile.stream.decoding)
+                    visible:            !tile.streamWindow && !(tile.stream && tile.stream.decoding)
                     text:               qsTr("WAITING FOR VIDEO")
                     color:              "white"
                     font.bold:          true
@@ -118,101 +158,53 @@ Item {
                     }
                 }
 
-                // Camera name in the bottom right corner of both the main video and the thumbnails.
-                Rectangle {
-                    id:                     labelBackground
-                    anchors.right:          parent.right
-                    anchors.bottom:         parent.bottom
-                    anchors.margins:        tile.isMain ? root._margin : 0
-                    width:                  labelRow.width + root._margin
-                    height:                 labelRow.height + root._margin / 2
-                    color:                  Qt.rgba(0, 0, 0, 0.6)
-                    radius:                 tile.isMain ? root._margin / 2 : 0
-                    visible:                true
-
-                    Row {
-                        id:                 labelRow
-                        anchors.centerIn:   parent
-                        spacing:            root._margin / 2
-
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width:                  ScreenTools.defaultFontPixelHeight * 0.5
-                            height:                 width
-                            radius:                 width / 2
-                            color:                  qgcPal.colorRed
-                            visible:                !!tile.stream && tile.stream.recording
-                        }
-
-                        QGCLabel {
-                            // Leave room for the record/photo buttons left of the name.
-                            width:          Math.min(implicitWidth,
-                                                     tile.width - (controlsRow.visible ? controlsRow.width : 0) - root._margin * 4)
-                            elide:          Text.ElideRight
-                            text:           tile.stream ? tile.stream.label : ""
-                            color:          "white"
-                            font.pointSize: tile.isMain ? ScreenTools.defaultFontPointSize : ScreenTools.smallFontPointSize
-                        }
-                    }
+                QGCLabel {
+                    anchors.centerIn:       parent
+                    width:                  parent.width - root._margin * 2
+                    horizontalAlignment:    Text.AlignHCenter
+                    wrapMode:               Text.WordWrap
+                    visible:                !!tile.streamWindow
+                    text:                   qsTr("Shown in a separate window")
+                    color:                  "white"
+                    font.pointSize:         ScreenTools.smallFontPointSize
                 }
 
-                Row {
-                    id:                 controlsRow
-                    // Next to the camera name: the bottom left corner of the main video is under the PiP block.
-                    anchors.right:          labelBackground.left
-                    anchors.rightMargin:    root._margin / 2
-                    anchors.verticalCenter: labelBackground.verticalCenter
-                    spacing:            root._margin / 2
-                    visible:            (tile.inStrip || !root.compact) && !!tile.stream && tile.stream.decoding
+                // Camera name in the top left corner of the main video (clear of the toolbar and tool strip)
+                // and of every block; the buttons follow it on the main video and sit at the bottom of a block.
+                // In the picture-in-picture block the top corners hold its own buttons, so there it goes bottom right.
+                MultiCameraStreamLabel {
+                    id:                     nameLabel
+                    x:                      tile.showsFullControls ? root.mainOverlayLeft
+                                                                   : (tile.isMain ? tile.width - width : 0)
+                    y:                      tile.showsFullControls ? root.mainOverlayTop
+                                                                   : (tile.isMain ? tile.height - height : 0)
+                    stream:                 tile.stream
+                    small:                  !tile.showsFullControls
+                    maximumWidth:           tile.showsFullControls ? tile.width / 3 : tile.width - root._margin * 2
+                }
 
-                    // Record
-                    Rectangle {
-                        width:  root._buttonSize
-                        height: width
-                        radius: width / 2
-                        color:  Qt.rgba(0, 0, 0, 0.6)
+                MultiCameraStreamControls {
+                    anchors.left:           nameLabel.right
+                    anchors.leftMargin:     root._margin
+                    anchors.verticalCenter: nameLabel.verticalCenter
+                    visible:                tile.showsFullControls
+                    stream:                 tile.stream
+                    buttonSize:             root._buttonSize
+                    showWindow:             true
+                    onOpenWindowClicked:    tile.openWindow()
+                }
 
-                        Rectangle {
-                            anchors.centerIn:   parent
-                            width:              parent.width * 0.5
-                            height:             width
-                            radius:             !!tile.stream && tile.stream.recording ? 0 : width / 2
-                            color:              qgcPal.colorRed
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                if (tile.stream.recording) {
-                                    tile.stream.stopRecording()
-                                } else {
-                                    tile.stream.startRecording()
-                                }
-                            }
-                        }
-                    }
-
-                    // Photo from the video frame
-                    Rectangle {
-                        width:  root._buttonSize
-                        height: width
-                        radius: width / 2
-                        color:  Qt.rgba(0, 0, 0, 0.6)
-
-                        QGCColoredImage {
-                            anchors.centerIn:   parent
-                            width:              parent.width * 0.6
-                            height:             width
-                            sourceSize.height:  height
-                            source:             "/InstrumentValueIcons/camera.svg"
-                            color:              "white"
-                        }
-
-                        MouseArea {
-                            anchors.fill:   parent
-                            onClicked:      tile.stream.grabImage()
-                        }
-                    }
+                MultiCameraStreamControls {
+                    anchors.left:           parent.left
+                    anchors.bottom:         parent.bottom
+                    anchors.margins:        root._margin / 2
+                    visible:                tile.inStrip
+                    stream:                 tile.stream
+                    buttonSize:             root._stripButtonSize
+                    showPhoto:              false
+                    showTalk:               false
+                    showWindow:             true
+                    onOpenWindowClicked:    tile.openWindow()
                 }
 
                 Component.onCompleted: {
@@ -221,8 +213,15 @@ Item {
                     }
                 }
 
-                // The receiver renders into videoOutput, so it has to go first.
+                // The receiver renders into videoOutput (or the window's), so it has to go first.
                 Component.onDestruction: {
+                    if (tile.streamWindow) {
+                        const popup = tile.streamWindow
+                        tile.streamWindow = null
+                        popup.videoReleased.disconnect(tile._windowClosed)
+                        popup.releaseVideo()
+                        popup.destroy()
+                    }
                     if (stream) {
                         stream.detachVideoOutput(videoOutput)
                     }

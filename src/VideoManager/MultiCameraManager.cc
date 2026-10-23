@@ -482,7 +482,10 @@ void MultiCameraManager::_removeStream(MultiCameraStream* stream)
     }
 
     // Release the receiver while its VideoOutput still exists; removing the model row destroys the tile.
+    // The audio session goes too: deleteLater() may run only after GStreamer has shut down.
     stream->releaseReceiver();
+    stream->setAudioEnabled(false);
+    stream->setTalkbackEnabled(false);
     (void) _streams.removeOne(stream);
     stream->deleteLater();
 }

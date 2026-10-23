@@ -2,10 +2,14 @@
 
 #include <chrono>
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QDateTime>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTimer>
 #include <QtQuick/QQuickItem>
+#if QT_CONFIG(permissions)
+#include <QtCore/QPermissions>
+#endif
 
 #include "AppMessages.h"
 #include "AppSettings.h"
@@ -18,6 +22,9 @@
 #include "VideoManager.h"
 #include "VideoReceiver.h"
 #include "VideoSettings.h"
+#ifdef QGC_GST_STREAMING
+#include "GstCameraAudio.h"
+#endif
 
 QGC_LOGGING_CATEGORY(MultiCameraStreamLog, "Video.MultiCameraStream")
 
@@ -59,6 +66,7 @@ void MultiCameraStream::setUri(const QString& uri)
 
     _uri = uri;
     emit uriChanged();
+    _updateAudio();
 
     if (_receiver) {
         _receiver->setUri(_uri);
@@ -337,5 +345,120 @@ void MultiCameraStream::_setRecording(bool recording)
     if (recording != _recording) {
         _recording = recording;
         emit recordingChanged();
+    }
+}
+
+bool MultiCameraStream::audioSupported() const
+{
+#ifdef QGC_GST_STREAMING
+    return _uri.startsWith(QStringLiteral("rtsp://"), Qt::CaseInsensitive) ||
+           _uri.startsWith(QStringLiteral("rtsps://"), Qt::CaseInsensitive);
+#else
+    return false;
+#endif
+}
+
+void MultiCameraStream::setAudioEnabled(bool enabled)
+{
+    if (enabled == _audioEnabled) {
+        return;
+    }
+    _audioEnabled = enabled;
+    emit audioEnabledChanged();
+    _updateAudio();
+}
+
+void MultiCameraStream::setTalkbackEnabled(bool enabled)
+{
+    if (enabled == _talkbackEnabled) {
+        return;
+    }
+
+#if QT_CONFIG(permissions)
+    if (enabled) {
+        const QMicrophonePermission microphone;
+        switch (qApp->checkPermission(microphone)) {
+            case Qt::PermissionStatus::Granted:
+                break;
+            case Qt::PermissionStatus::Undetermined:
+                qApp->requestPermission(microphone, this, [this](const QPermission& permission) {
+                    if (permission.status() == Qt::PermissionStatus::Granted) {
+                        _applyTalkbackEnabled(true);
+                    } else {
+                        QGC::showAppMessage(tr("Microphone access was denied."));
+                    }
+                });
+                return;
+            case Qt::PermissionStatus::Denied:
+                QGC::showAppMessage(tr("Microphone access is denied; allow it in the system settings."));
+                return;
+        }
+    }
+#endif
+    _applyTalkbackEnabled(enabled);
+}
+
+void MultiCameraStream::_applyTalkbackEnabled(bool enabled)
+{
+    if (enabled == _talkbackEnabled) {
+        return;
+    }
+    _talkbackEnabled = enabled;
+    emit talkbackEnabledChanged();
+    _updateAudio();
+}
+
+void MultiCameraStream::_updateAudio()
+{
+#ifdef QGC_GST_STREAMING
+    const bool wanted = audioSupported() && (_audioEnabled || _talkbackEnabled);
+    if (!wanted) {
+        if (_audio) {
+            _audio->stop();
+        }
+        return;
+    }
+
+    if (!_audio) {
+        _audio = new GstCameraAudio(this);
+        (void) connect(_audio, &GstCameraAudio::audioPlayingChanged, this,
+                       [this](bool playing) { _setAudioPlaying(playing); });
+        (void) connect(_audio, &GstCameraAudio::talkbackActiveChanged, this,
+                       [this](bool active) { _setTalkbackActive(active); });
+        (void) connect(_audio, &GstCameraAudio::failed, this, [this](const QString& reason) {
+            qCWarning(MultiCameraStreamLog) << _key << "audio failed:" << reason;
+            QGC::showAppMessage(tr("%1: %2").arg(_label, reason));
+            // Off again, so the buttons show what is really happening; the user can retry.
+            if (_audioEnabled) {
+                _audioEnabled = false;
+                emit audioEnabledChanged();
+            }
+            if (_talkbackEnabled) {
+                _talkbackEnabled = false;
+                emit talkbackEnabledChanged();
+            }
+        });
+    }
+    _audio->configure(_uri, _audioEnabled, _talkbackEnabled);
+#else
+    if (_audioEnabled || _talkbackEnabled) {
+        QGC::showAppMessage(tr("Camera audio needs GStreamer video streaming."));
+    }
+#endif
+}
+
+void MultiCameraStream::_setAudioPlaying(bool playing)
+{
+    if (playing != _audioPlaying) {
+        _audioPlaying = playing;
+        emit audioPlayingChanged();
+    }
+}
+
+void MultiCameraStream::_setTalkbackActive(bool active)
+{
+    if (active != _talkbackActive) {
+        _talkbackActive = active;
+        emit talkbackActiveChanged();
     }
 }

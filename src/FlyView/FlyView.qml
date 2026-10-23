@@ -134,6 +134,14 @@ Item {
             pipView:                _pipView
             cameraStripHost:        cameraStrip
             cameraStripTileWidth:   cameraStrip.tileWidth
+            // Right of the tool strip and below the toolbar while the video is the full size item with the
+            // Fly View controls over it; the plain corner otherwise (full screen, own window).
+            cameraOverlayLeft:      _cameraOverlayClear ? _toolsMargin
+                                                        : widgetLayer.x + _layerOccluders.toolStrip.x + _layerOccluders.toolStrip.width + _toolsMargin
+            cameraOverlayTop:       _cameraOverlayClear ? _toolsMargin : widgetLayer.y
+
+            readonly property bool _cameraOverlayClear: QGroundControl.videoManager.fullScreen ||
+                                                        pipState.state !== pipState.fullState
 
             // Clicking a camera block shows that camera full size, also when the map was the full item.
             onCameraSelected: {

@@ -53,6 +53,9 @@ qt_add_qml_module(FlyViewModule
         GuidedActionTakeoff.qml
         GuidedToolStripAction.qml
         GuidedValueSlider.qml
+        MultiCameraStreamControls.qml
+        MultiCameraStreamLabel.qml
+        MultiCameraStreamWindow.qml
         MultiCameraView.qml
         MultiRotorChecklist.qml
         MultiVehicleList.qml

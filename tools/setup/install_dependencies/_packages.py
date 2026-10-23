@@ -94,6 +94,9 @@ DEBIAN_PACKAGES: dict[str, list[str]] = {
         "gstreamer1.0-libav",
         "gstreamer1.0-rtsp",
         "gstreamer1.0-x",
+        # Camera audio and talkback (multi-camera): audio devices for autoaudiosrc/autoaudiosink.
+        "gstreamer1.0-alsa",
+        "gstreamer1.0-pulseaudio",
         "libblas3",
         "libopenblas0",
         "python3-gi",

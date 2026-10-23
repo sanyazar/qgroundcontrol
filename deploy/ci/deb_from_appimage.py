@@ -67,8 +67,11 @@ REQUIRED = {
     "libgmp.so.10": "libgmp10",
     "libgpg-error.so.0": "libgpg-error0",
 }
-# Only needed by optional Qt plugins (GTK theme, speech-dispatcher text to speech).
+# Only needed by optional plugins (Qt GTK theme, speech-dispatcher text to speech, GStreamer PulseAudio
+# for camera audio, which falls back to ALSA).
 OPTIONAL = {
+    "libpulse.so.0": "libpulse0",
+    "libpulse-simple.so.0": "libpulse0",
     "libgtk-3.so.0": "libgtk-3-0 | libgtk-3-0t64",
     "libgdk-3.so.0": "libgtk-3-0 | libgtk-3-0t64",
     "libatk-1.0.so.0": "libatk1.0-0 | libatk1.0-0t64",

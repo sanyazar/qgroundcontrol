@@ -12,6 +12,9 @@ Item {
     // Multi-camera mode: blocks of the cameras other than the selected one live in this FlyView-level item.
     property Item cameraStripHost:      null
     property real cameraStripTileWidth: ScreenTools.defaultFontPixelHeight * 10
+    /// Free top left corner of the full size video for the camera name and buttons (FlyView coordinates).
+    property real cameraOverlayLeft:    ScreenTools.defaultFontPixelWidth
+    property real cameraOverlayTop:     ScreenTools.defaultFontPixelWidth
     readonly property int cameraStripCount: _multiCameraMode ? multiCameraView.stripCount : 0
 
     /// A camera block in the strip was clicked; it is now the selected camera.
@@ -66,8 +69,10 @@ Item {
     MultiCameraView {
         id:                 multiCameraView
         anchors.fill:       parent
-        compact:            _root.pipState.state !== _root.pipState.fullState
+        compact:            _root.pipState.state === _root.pipState.pipState
         visible:            _root._multiCameraMode
+        mainOverlayLeft:    _root.cameraOverlayLeft
+        mainOverlayTop:     _root.cameraOverlayTop
         stripHost:          _root._multiCameraMode ? _root.cameraStripHost : null
         stripTileWidth:     _root.cameraStripTileWidth
         onCameraSelected:   _root.cameraSelected()

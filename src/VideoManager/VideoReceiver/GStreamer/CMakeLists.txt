@@ -97,6 +97,8 @@ target_sources(
     ${CMAKE_PROJECT_NAME}
     PRIVATE GStreamer.cc
             GStreamer.h
+            GstCameraAudio.cc
+            GstCameraAudio.h
             GStreamerEnvironment.cc
             GStreamerEnvironment.h
             GStreamerHelpers.cc
