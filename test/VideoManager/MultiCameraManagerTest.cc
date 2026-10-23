@@ -151,6 +151,41 @@ void MultiCameraManagerTest::_testHiddenStreams()
     QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
 }
 
+void MultiCameraManagerTest::_testStreamQuality()
+{
+    VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
+    MultiCameraManager manager;
+    manager.init();
+    manager.setStreamQuality(QString());
+
+    videoSettings->multiCameraStreams()->setRawValue(
+        QStringLiteral(R"([{"type":"hikvision","name":"Front","host":"10.0.0.7","stream":"sub"},)"
+                       R"({"type":"custom","name":"Down","uri":"udp://0.0.0.0:5600"}])"));
+    videoSettings->multiCameraMaxStreams()->setRawValue(4);
+    videoSettings->multiCameraEnabled()->setRawValue(true);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 2, kRebuildTimeoutMs);
+    QVERIFY(manager.hasPresetStreams());
+    const auto* const preset = manager.streams()->value<MultiCameraStream*>(0);
+    const QString key = preset->key();
+    QCOMPARE(preset->uri(), QStringLiteral("rtsp://10.0.0.7:554/Streaming/Channels/102"));
+
+    // All presets switch to the main stream; the stream keeps its key, custom URLs are untouched.
+    manager.setStreamQuality(QStringLiteral("main"));
+    QCOMPARE(manager.streams()->count(), 2);
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(0)->key(), key);
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(0)->uri(),
+             QStringLiteral("rtsp://10.0.0.7:554/Streaming/Channels/101"));
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(1)->uri(), QStringLiteral("udp://0.0.0.0:5600"));
+
+    manager.setStreamQuality(QStringLiteral("sub"));
+    QCOMPARE(manager.streams()->value<MultiCameraStream*>(0)->uri(),
+             QStringLiteral("rtsp://10.0.0.7:554/Streaming/Channels/102"));
+
+    manager.setStreamQuality(QString());
+    videoSettings->multiCameraEnabled()->setRawValue(false);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
+}
+
 void MultiCameraManagerTest::_testCameraPresetUris_data()
 {
     QTest::addColumn<QString>("entryJson");

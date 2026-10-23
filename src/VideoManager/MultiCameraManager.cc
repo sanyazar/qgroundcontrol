@@ -1,5 +1,6 @@
 #include "MultiCameraManager.h"
 
+#include <algorithm>
 #include <chrono>
 
 #include <QtCore/QCryptographicHash>
@@ -34,6 +35,13 @@ namespace {
 constexpr std::chrono::milliseconds kRebuildDelay{250};
 constexpr int kDefaultRtspPort = 554;
 const QString kHiddenStreamsSettingsKey = QStringLiteral("MultiCamera/hiddenStreams");
+const QString kStreamQualitySettingsKey = QStringLiteral("MultiCamera/streamQuality");
+
+bool isPresetEntry(const QJsonObject& entry)
+{
+    const QString type = entry.value(QStringLiteral("type")).toString();
+    return !type.isEmpty() && (type != QLatin1String("custom"));
+}
 
 // Vendor RTSP layouts; channel is 1-based (NVR channel or 1 for a single camera).
 QString presetPath(const QString& type, int channel, bool subStream, QString* query)
@@ -125,6 +133,10 @@ MultiCameraManager::MultiCameraManager(QObject* parent)
     QSettings settings;
     const QStringList hidden = settings.value(kHiddenStreamsSettingsKey).toStringList();
     _hiddenKeys = QSet<QString>(hidden.cbegin(), hidden.cend());
+    const QString quality = settings.value(kStreamQualitySettingsKey).toString();
+    if ((quality == QLatin1String("main")) || (quality == QLatin1String("sub"))) {
+        _streamQuality = quality;
+    }
 }
 
 MultiCameraManager::~MultiCameraManager()
@@ -212,6 +224,41 @@ void MultiCameraManager::showAllStreams()
         _saveHiddenKeys();
         _rebuild();
     }
+}
+
+void MultiCameraManager::setStreamQuality(const QString& quality)
+{
+    const QString value =
+        ((quality == QLatin1String("main")) || (quality == QLatin1String("sub"))) ? quality : QString();
+    if (value == _streamQuality) {
+        return;
+    }
+    _streamQuality = value;
+    QSettings settings;
+    if (value.isEmpty()) {
+        settings.remove(kStreamQualitySettingsKey);
+    } else {
+        settings.setValue(kStreamQualitySettingsKey, value);
+    }
+    emit streamQualityChanged();
+    _rebuild();
+}
+
+void MultiCameraManager::_entryUris(const QJsonObject& entry, QString* uri, QString* keyUri) const
+{
+    if (!isPresetEntry(entry)) {
+        *uri = manualStreamUri(entry);
+        *keyUri = *uri;
+        return;
+    }
+    QJsonObject effective(entry);
+    if (!_streamQuality.isEmpty()) {
+        effective.insert(QStringLiteral("stream"), _streamQuality);
+    }
+    *uri = manualStreamUri(effective);
+    QJsonObject mainStream(entry);
+    mainStream.insert(QStringLiteral("stream"), QStringLiteral("main"));
+    *keyUri = manualStreamUri(mainStream);
 }
 
 void MultiCameraManager::_saveHiddenKeys() const
@@ -387,7 +434,9 @@ void MultiCameraManager::_appendLinkStreams(QList<StreamSpec>& specs)
         const QJsonArray entries = parseStreamEntries(config->cameras(), "Link");
         for (qsizetype entryIndex = 0; entryIndex < entries.count(); entryIndex++) {
             const QJsonObject entry = entries.at(entryIndex).toObject();
-            const QString uri = manualStreamUri(entry);
+            QString uri;
+            QString keyUri;
+            _entryUris(entry, &uri, &keyUri);
             if (uri.isEmpty()) {
                 continue;
             }
@@ -398,10 +447,11 @@ void MultiCameraManager::_appendLinkStreams(QList<StreamSpec>& specs)
             }
 
             StreamSpec spec;
-            spec.key = QStringLiteral("link:%1:%2").arg(uriHash(config->name()), uriHash(uri));
+            spec.key = QStringLiteral("link:%1:%2").arg(uriHash(config->name()), uriHash(keyUri));
             spec.label = name;
             spec.uri = uri;
             spec.vehicleId = vehicleId;
+            spec.preset = isPresetEntry(entry);
             specs.append(spec);
         }
     }
@@ -413,7 +463,9 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         parseStreamEntries(_videoSettings->multiCameraStreams()->rawValue().toString(), "multiCameraStreams");
     for (const QJsonValue& value : entries) {
         const QJsonObject entry = value.toObject();
-        const QString uri = manualStreamUri(entry);
+        QString uri;
+        QString keyUri;
+        _entryUris(entry, &uri, &keyUri);
         if (uri.isEmpty()) {
             continue;
         }
@@ -425,10 +477,11 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         }
 
         StreamSpec spec;
-        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(uriHash(uri));
+        spec.key = QStringLiteral("manual:%1:%2").arg(vehicleId).arg(uriHash(keyUri));
         spec.label = (vehicleId > 0) ? tr("Vehicle %1 · %2").arg(vehicleId).arg(name) : name;
         spec.uri = uri;
         spec.vehicleId = vehicleId;
+        spec.preset = isPresetEntry(entry);
         specs.append(spec);
     }
 }
@@ -517,6 +570,12 @@ QList<MultiCameraManager::StreamSpec> MultiCameraManager::_collectStreams()
         _hiddenStreams = hidden;
         emit hiddenStreamsChanged();
     }
+    const bool hasPresets =
+        std::any_of(result.cbegin(), result.cend(), [](const StreamSpec& spec) { return spec.preset; });
+    if (hasPresets != _hasPresetStreams) {
+        _hasPresetStreams = hasPresets;
+        emit hasPresetStreamsChanged();
+    }
     return result;
 }
 
@@ -565,6 +624,10 @@ void MultiCameraManager::_rebuild()
     if (!enabled() && !_hiddenStreams.isEmpty()) {
         _hiddenStreams.clear();
         emit hiddenStreamsChanged();
+    }
+    if (!enabled() && _hasPresetStreams) {
+        _hasPresetStreams = false;
+        emit hasPresetStreamsChanged();
     }
     const int oldMainIndex = mainIndex();
     bool changed = false;

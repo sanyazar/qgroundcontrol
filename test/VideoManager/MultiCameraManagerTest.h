@@ -13,6 +13,7 @@ private slots:
     void _testUriForStreamInfo();
     void _testManualStreams();
     void _testHiddenStreams();
+    void _testStreamQuality();
     void _testCameraPresetUris_data();
     void _testCameraPresetUris();
     void _testPresetCredentialsStayOutOfKeys();

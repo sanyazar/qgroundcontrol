@@ -90,13 +90,14 @@ Use a dedicated camera account with view-only rights.
 
 ## Using the Video View
 
-The bottom left corner holds the picture-in-picture block — the map while a camera is full size, or the selected camera while the map is full size — followed by one block per other camera, all the same size.
-The row shrinks its blocks when there are many cameras, and the Fly View controls keep clear of it.
+The bottom left corner holds the picture-in-picture block — the map while a camera is full size, or the selected camera while the map is full size — and every other camera has a block of its own, by default in a column above it (below it when the picture-in-picture block is moved to the upper half).
+The column shrinks its blocks when there are many cameras, and the Fly View controls keep clear of it.
 
 - **Show a camera full size** — click its block. If the map was full size, it moves into the picture-in-picture block. Streams keep running while you switch, so there is no reconnect delay.
 - **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
-- **Resize the blocks** — drag the resize handle of the picture-in-picture block; the camera blocks follow its size.
-- **Move the blocks** — drag the handle (six dots) on the top edge of the picture-in-picture block: the block, the camera blocks next to it and the hidden-cameras button move together to any place in the window, which is remembered.
+- **Resize** — drag the resize handle (top right) of the picture-in-picture block; the column of camera blocks follows its size. Each camera block has its own resize handle too.
+- **Move** — drag the handle (six dots) on the top edge of a block. The picture-in-picture block takes the hidden-cameras button and the column of camera blocks with it; a camera block moves on its own and leaves the column. Places and sizes are remembered per camera. Double-click a camera block's handle to put it back in the column.
+- **All cameras HD/SD** — the round **HD/SD** button above the button column switches every preset camera (Dahua, Hikvision, Uniview) to its main stream (**HD**) or sub stream (**SD**) at once; a long press goes back to each camera's own **Stream** setting. Custom URLs are not affected.
 - **Hide the blocks** — the arrow button of the picture-in-picture block collapses it, and the camera blocks are hidden with it; the restore button brings them all back.
 - **Full screen** — double-click the full-size camera (requires a connected vehicle).
 - **Camera name** — shown in bold in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.
@@ -120,8 +121,8 @@ A block shows **WAITING FOR VIDEO** until the first frame arrives, and the view 
 
 ### Separate Windows
 
-A stream opened in a separate window keeps its record, photo, audio and talk buttons there; its block in the Fly View shows **Shown in a separate window**.
-Close the window to bring the video back. Moving the video to or from a window restarts the stream for a moment, so the button is disabled while that stream records.
+A stream opened in a separate window keeps its record, photo, audio and talk buttons there, and its block leaves the Fly View (the column closes up).
+Close the window to bring the block back. Moving the video to or from a window restarts the stream for a moment, so the button is disabled while that stream records.
 
 ### Camera Audio and Talking to the Camera
 

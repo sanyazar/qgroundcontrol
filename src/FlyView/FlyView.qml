@@ -63,14 +63,14 @@ Item {
     property real _blocksFx: Number(QGroundControl.loadGlobalSetting(_blocksFxSettingsKey, "0"))
     property real _blocksFy: Number(QGroundControl.loadGlobalSetting(_blocksFySettingsKey, "1"))
     readonly property real _blocksTop: toolbar.height + _toolsMargin
-    /// Full width of the group, so it can be kept inside the view.
+    /// Full width of the PiP group (PiP block and hidden-cameras button), so it can be kept inside the view.
     readonly property real _blocksWidth: (_pipView.visible ? _pipView.width : 0) +
-                                         (cameraStrip.count > 0 ? cameraStrip.width + _toolsMargin : 0) +
                                          (_hiddenCameraCount > 0 ? hiddenCamerasButton.width + _toolsMargin : 0)
 
-    // Area of the PiP block, the camera block row and the hidden-cameras button, in the coordinates of an item
-    // at (originX, originY), so the widget layer keeps its controls (e.g. the tool strip's height) clear of them.
-    // Once the group is moved to the upper half it no longer limits the layer.
+    // Area of the PiP block, the column of camera blocks and the hidden-cameras button, in the coordinates of an
+    // item at (originX, originY), so the widget layer keeps its controls (e.g. the tool strip's height) clear of
+    // them. Blocks the user dragged elsewhere are not included. Once the group is away from the left edge or too
+    // high for the tool strip, it no longer limits the layer.
     function _bottomLeftBlocksRect(originX, originY, emptyY) {
         var left = Number.MAX_VALUE, top = Number.MAX_VALUE, right = -Number.MAX_VALUE, bottom = -Number.MAX_VALUE
         if (_pipView.visible) {
@@ -79,11 +79,12 @@ Item {
             right = left + _pipView.occupiedRect.width
             bottom = top + _pipView.occupiedRect.height
         }
-        if (cameraStrip.visible) {
-            left = Math.min(left, cameraStrip.x)
-            top = Math.min(top, cameraStrip.y)
-            right = Math.max(right, cameraStrip.x + cameraStrip.width)
-            bottom = Math.max(bottom, cameraStrip.y + cameraStrip.height)
+        if (cameraStrip.visible && cameraStrip.count > 0) {
+            const column = cameraStrip.columnRect
+            left = Math.min(left, column.x)
+            top = Math.min(top, column.y)
+            right = Math.max(right, column.x + column.width)
+            bottom = Math.max(bottom, column.y + column.height)
         }
         if (hiddenCamerasButton.visible) {
             left = Math.min(left, hiddenCamerasButton.x)
@@ -91,7 +92,7 @@ Item {
             right = Math.max(right, hiddenCamerasButton.x + hiddenCamerasButton.width)
             bottom = Math.max(bottom, hiddenCamerasButton.y + hiddenCamerasButton.height)
         }
-        if ((right < left) || (top < _root.height / 2)) {
+        if ((right < left) || (left > _root.width / 4) || (top < _blocksTop + ScreenTools.defaultFontPixelHeight * 8)) {
             return Qt.rect(0, emptyY, 0, 0)
         }
         return Qt.rect(left - originX, top - originY, right - left, bottom - top)
@@ -181,9 +182,9 @@ Item {
             }
         }
 
-        // The PiP block, the camera blocks and the hidden-cameras button form one group, at the bottom left by
-        // default. The PiP's drag handle moves the group anywhere; its place is kept as fractions of the free room
-        // so it survives window resizes.
+        // The PiP block and the hidden-cameras button form one group, at the bottom left by default, and the
+        // column of camera blocks follows it. The PiP's drag handle moves the group anywhere; its place is kept
+        // as fractions of the free room so it survives window resizes.
         PipView {
             id:                     _pipView
             objectName:             "flyViewPipView"
@@ -214,33 +215,41 @@ Item {
             }
         }
 
-        // Multi-camera mode: one block per camera that is not the selected one, in a row next to the
-        // PiP block (which holds the map or the selected camera), so every camera and the map stay visible.
+        // Multi-camera mode: one block per camera that is not the selected one. This item covers the Fly View
+        // and holds the blocks (MultiCameraView places them); by default they form a column next to the PiP
+        // block (which holds the map or the selected camera) - above it, or below it when the PiP is in the upper
+        // half - so every camera and the map stay visible. Each block can be dragged and resized on its own.
         // Hidden with the PiP block when that is collapsed.
         Item {
             id:                     cameraStrip
-            // Right of the PiP block, or of its restore button while the block is collapsed; bottoms aligned.
-            x:                      _pipView.x + (_pipView.visible ? _pipView.occupiedRect.x + _pipView.occupiedRect.width + _toolsMargin : 0)
-            y:                      _pipView.y + _pipView.height - height
-            width:                  count > 0 ? count * tileWidth + (count - 1) * _toolsMargin : 0
-            height:                 count > 0 ? tileWidth * 9 / 16 : 0
-            visible:                count > 0 && _blocksShown
+            anchors.fill:           parent
+            visible:                _blocksShown
             z:                      QGroundControl.zOrderWidgets
 
             readonly property int  count:       videoControl.cameraStripCount
-            // Same size as the PiP block, shrunk when the row would run past three quarters of the view.
-            readonly property real _pipWidth:   _pipView.visible ? _pipView.width : _root.width * 0.2
-            readonly property real _room:       _root.width * 0.75 - _pipWidth - _toolsMargin
+            readonly property bool _pipShown:   _pipView.visible
+            readonly property real columnX:     _pipShown ? _pipView.x : _toolsMargin
+            readonly property bool columnUp:    !_pipShown || (_pipView.y + _pipView.height / 2 > height / 2)
+            readonly property real columnStart: !_pipShown ? height - _toolsMargin
+                                                           : (columnUp ? _pipView.y - _toolsMargin
+                                                                       : _pipView.y + _pipView.height + _toolsMargin)
+            readonly property real blocksTop:       _blocksTop
+            readonly property real blocksBottom:    height - _toolsMargin
+            // Same width as the PiP block, shrunk so the column fits between the toolbar and the PiP.
+            readonly property real _pipWidth:   _pipShown ? _pipView.width : width * 0.2
+            readonly property real _room:       columnUp ? columnStart - blocksTop : blocksBottom - columnStart
             readonly property real tileWidth:   count > 0 ? Math.max(ScreenTools.defaultFontPixelHeight * 6,
-                                                                     Math.min(_pipWidth, (_room - (count - 1) * _toolsMargin) / count))
+                                                                     Math.min(_pipWidth, (_room - (count - 1) * _toolsMargin) / count * 16 / 9))
                                                           : _pipWidth
+            readonly property real _columnHeight: count > 0 ? count * tileWidth * 9 / 16 + (count - 1) * _toolsMargin : 0
+            readonly property rect columnRect:  Qt.rect(columnX, columnUp ? columnStart - _columnHeight : columnStart,
+                                                        tileWidth, _columnHeight)
         }
 
         // Cameras removed from the view: shows how many, and a menu to bring each one (or all) back.
         Rectangle {
             id:             hiddenCamerasButton
-            x:              cameraStrip.visible ? cameraStrip.x + cameraStrip.width + _toolsMargin
-                                                : _pipView.x + (_pipView.visible ? _pipView.occupiedRect.x + _pipView.occupiedRect.width + _toolsMargin : 0)
+            x:              _pipView.x + (_pipView.visible ? _pipView.occupiedRect.x + _pipView.occupiedRect.width + _toolsMargin : 0)
             y:              _pipView.y + _pipView.height - height
             width:          hiddenCamerasRow.width + ScreenTools.defaultFontPixelWidth * 1.5
             height:         ScreenTools.defaultFontPixelHeight * 2
