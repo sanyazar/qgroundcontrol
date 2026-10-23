@@ -1,11 +1,11 @@
-# Зміни у форку sanyazar/qgroundcontrol
+# QGroundControl-Bastion: зміни відносно QGroundControl
 
 Форк базується на `mavlink/qgroundcontrol` (ревізія `fba7dfc`, 22.10.2026) і додає:
 
 1. **Мультикамера** — одночасний показ кількох відеопотоків: кілька камер на одному дроні, кілька дронів, або все разом.
 2. **Пакування** — MSI-інсталятор для Windows і Docker-образ для його збірки; `.deb` для Ubuntu збирається наявним Linux-образом.
 3. **Назва QGroundControl-Bastion** — усі імена й шляхи відрізняються від оригіналу, тож обидві версії можна встановити одночасно.
-4. **GitHub Actions** — автоматична збірка `.deb`, `.apk` і `.msi`, на серверах GitHub або на власних машинах.
+4. **GitLab CI** — автоматична збірка `.deb`, `.apk` і `.msi` на власних раннерах (ноутбук і Windows VM), релізи для тегів.
 
 Документація для користувача англійською (як і решта документації QGC): [Multiple Cameras](docs/en/qgc-user-guide/fly_view/multi_camera.md), розділ **Multiple Cameras** у [Video settings](docs/en/qgc-user-guide/settings_view/video.md), збірка пакетів — [Building using Containers](docs/en/qgc-dev-guide/getting_started/container.md#native-packages-deb-and-msi).
 
@@ -24,6 +24,7 @@
 | `ci(packages): check Docker access on self-hosted runners` | Зрозуміла помилка, якщо раннер не має доступу до Docker |
 | `feat(Comms): configure cameras per comm link` | Камери в діалозі comm link, назва в правому нижньому куті |
 | `feat(FlyView): show the map and every camera as blocks` | Карта й усі камери, крім розгорнутої, — блоки однакового розміру |
+| `ci: move package builds to GitLab CI` | `.gitlab-ci.yml`, скрипти `deploy/ci`, без GitHub Actions |
 
 ## 1. Мультикамера
 
@@ -160,24 +161,88 @@ cmake --build --preset Windows-msi --target qgc-package
 
 Не перейменовано: валідатори пакетів і workflow офіційного QGC (`.github/scripts/validate_native_package.py`, `deploy/docker/validate_native_package.py`, `linux.yml`, `docker.yml`) — вони, як і раніше, очікують `QGroundControl` і у форку не використовуються.
 
-## 4. GitHub Actions
+## 4. Репозиторій і CI в GitLab
 
-`.github/workflows/packages.yml` (**Bastion Packages**):
+Основний репозиторій — self-hosted GitLab у локальній мережі. GitHub-форк `sanyazar/qgroundcontrol` більше не оновлюється.
 
-- **Ubuntu .deb** — окремий пакет для Ubuntu 22.04, 24.04 і 26.04 (Docker-образи `ubuntu-2204`, `ubuntu`, `ubuntu-2604`), бо кожен прив'язаний до версій ffmpeg/libvpx/openh264 свого релізу. Файли `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb`, артефакти `qgroundcontrol-bastion-ubuntu<реліз>`; AppImage (з 22.04, працює на більшості дистрибутивів) — артефакт `qgroundcontrol-bastion-appimage`. Ставте `.deb` саме для своєї версії Ubuntu (`lsb_release -rs`);
-- **Android .apk** — Docker-образ `android`, потім `deploy/android/sign-apk.sh` вирівнює й підписує APK; артефакт `qgroundcontrol-bastion-android` (`QGroundControl-Bastion.apk`, пакет `org.mavlink.qgroundcontrol.bastion`);
-- **Windows .msi** — Qt MSVC, GStreamer, WiX 5, пресет `Windows-msi`; артефакт `qgroundcontrol-bastion-windows`;
-- **GitHub release** — для тегів `vX.Y.Z…` публікує всі пакети як реліз.
+### Перенос репозиторію (один раз)
 
-Запускається: кнопкою **Run workflow** на вкладці Actions, пушем у `feat/multi-camera` (крім змін лише в документації) і тегом:
+1. У GitLab: **New project → Create blank project**, назва `qgroundcontrol-bastion`, **без** README («Initialize repository with a README» вимкнено).
+2. На ноутбуці, у клоні з гілкою `feat/multi-camera`:
+
+   ```bash
+   cd ~/qgs/src/qgroundcontrol
+   git fetch fork && git checkout feat/multi-camera && git pull --ff-only fork feat/multi-camera
+   git remote add gitlab http://<адреса-gitlab>/<група>/qgroundcontrol-bastion.git
+   git push gitlab feat/multi-camera:main      # основна гілка в GitLab
+   git push gitlab --tags                      # теги версій upstream: потрібні для номера версії пакетів
+   git push gitlab master:upstream-master      # оригінальний QGC — для майбутніх оновлень
+   git branch -u gitlab/main feat/multi-camera # далі git pull/push іде в GitLab
+   ```
+
+   Якщо HTTP-пуш великого репозиторію обривається: `git config http.postBuffer 524288000` і повторити (або SSH-адреса).
+3. У GitLab: **Settings → Repository → Branch defaults** — default branch `main`.
+
+### Пайплайн `.gitlab-ci.yml`
+
+| Job | Раннер | Результат (артефакти, 30 днів) |
+| --- | ------ | ------------------------------ |
+| `deb: [ubuntu-2204, 22.04]` / `[ubuntu, 24.04]` / `[ubuntu-2604, 26.04]` | `bastion-linux` | `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb` + `.sha256`; з 22.04 ще AppImage |
+| `apk` | `bastion-linux` | `QGroundControl-Bastion.apk` (підписаний) |
+| `msi` | `bastion-windows` | `QGroundControl-Bastion-<версія>-AMD64.msi` + `.sha256` |
+| `release` (лише для тегів `vX.Y.Z`) | `bastion-linux` | Пакети в **Deploy → Package registry** і реліз у **Deploy → Releases** |
+
+Запускається пушем, що змінює код/збірку (зміни лише в документації не запускають), кнопкою **Build → Pipelines → Run pipeline** і тегом:
 
 ```bash
-git tag v5.2.1 && git push fork v5.2.1
+git tag v5.2.1 && git push gitlab v5.2.1
 ```
 
-Артефакти зберігаються 30 днів: Actions → запуск → **Artifacts**.
-Workflow офіційного QGC у форку запускаються лише для `master`, тегів `vX.Y.Z` і pull request'ів, тож пуші у `feat/multi-camera` їх не чіпають.
-Форк створюється без тегів, тому workflow підтягує теги `v*` з `mavlink/qgroundcontrol` — інакше версія пакета була б `0.0.0` і пакування б відмовило.
+Скрипти: `deploy/ci/finalize-deb.sh` (перевірка й назва `.deb`), `deploy/ci/sign-apk-docker.sh` (підпис APK у Docker-образі), `deploy/ci/build-msi.ps1` (Qt, WiX, MSVC, збірка MSI), `deploy/ci/publish-release.sh` (реліз через API GitLab).
+Linux-збірки йдуть у тих самих Docker-образах, що й локально; кеші (`.ccache`, `.cache/CPM`), Python-середовище й папка збірки MSI зберігаються між запусками.
+Версія пакета береться з `git describe`; якщо теги не запушено, CI підтягує теги `v*` з `mavlink/qgroundcontrol`.
+
+### Раннери
+
+**Linux (ноутбук)**, shell executor:
+
+```bash
+sudo curl -L -o /usr/local/bin/gitlab-runner \
+    https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64
+sudo chmod +x /usr/local/bin/gitlab-runner
+sudo useradd --comment 'GitLab Runner' --create-home gitlab-runner --shell /bin/bash
+sudo usermod -aG docker gitlab-runner
+sudo gitlab-runner install --user=gitlab-runner --working-directory=/home/gitlab-runner
+sudo gitlab-runner start
+```
+
+У GitLab: проєкт → **Settings → CI/CD → Runners → New project runner**: Tags `bastion-linux`, «Run untagged jobs» вимкнено → **Create runner**, скопіювати токен `glrt-…`:
+
+```bash
+sudo gitlab-runner register --non-interactive --url http://<адреса-gitlab> \
+    --token glrt-XXXX --executor shell --description bastion-linux
+sudo gitlab-runner restart
+```
+
+Потрібні на ноутбуці: Docker, `python3`, `dpkg-deb`, `curl` (є в Ubuntu). Старий GitHub-раннер можна прибрати: `cd ~/actions-runner && sudo ./svc.sh stop && sudo ./svc.sh uninstall`.
+
+**Windows (VM)**, shell executor, PowerShell (адміністратор):
+
+1. Інструменти, якщо ще не встановлені: Git, Python 3.12, uv (`winget install --id astral-sh.uv -e`), .NET SDK 8, VS 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону репозиторію).
+2. Раннер:
+
+   ```powershell
+   New-Item -ItemType Directory C:\GitLab-Runner | Out-Null
+   Invoke-WebRequest https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-windows-amd64.exe `
+       -OutFile C:\GitLab-Runner\gitlab-runner.exe
+   cd C:\GitLab-Runner
+   .\gitlab-runner.exe register --non-interactive --url http://<адреса-gitlab> --token glrt-YYYY `
+       --executor shell --shell powershell --builds-dir C:\b --description bastion-windows
+   .\gitlab-runner.exe install --user .\builder --password '<пароль builder>'
+   .\gitlab-runner.exe start
+   ```
+
+   Токен — з **New project runner** з тегом `bastion-windows`. Короткий `--builds-dir C:\b` потрібен, бо шляхи Qt перевищують ліміт Windows. Службу запускайте від користувача, під яким встановлено uv, Python і .NET (`builder`).
 
 ### Підпис Android
 
@@ -185,37 +250,10 @@ Workflow офіційного QGC у форку запускаються лиш�
 
 ```bash
 keytool -genkeypair -keystore bastion.jks -alias bastion -keyalg RSA -keysize 3072 -validity 10000
-base64 -w0 bastion.jks   # вміст -> секрет BASTION_ANDROID_KEYSTORE
+base64 -w0 bastion.jks   # вміст -> змінна BASTION_ANDROID_KEYSTORE
 ```
 
-Секрети репозиторію (**Settings → Secrets and variables → Actions → Secrets**): `BASTION_ANDROID_KEYSTORE`, `BASTION_ANDROID_KEYSTORE_PASSWORD`, `BASTION_ANDROID_KEY_ALIAS` (`bastion`). Сам `bastion.jks` зберігайте поза репозиторієм: без нього оновлення встановлених APK неможливі.
-
-## 5. Збірка на власних машинах (self-hosted runners)
-
-За замовчуванням збирають сервери GitHub. Щоб збирати на своєму ноутбуці, зареєструйте раннери й задайте змінні репозиторію (**Settings → Secrets and variables → Actions → Variables**):
-
-| Змінна | Значення | Що збирає | Де |
-| ------ | -------- | --------- | -- |
-| `BASTION_LINUX_RUNNER` | `bastion-linux` | `.deb`, AppImage, `.apk` | Ubuntu з Docker |
-| `BASTION_WINDOWS_RUNNER` | `bastion-windows` | `.msi` | Windows (VM) |
-
-Видаліть змінну — збірка повернеться на сервери GitHub. На self-hosted раннерах кроки звільнення диска пропускаються, а кеші (`.ccache`, `.cache/CPM`, Docker-образи) зберігаються між запусками, тож повторні збірки йдуть за хвилини.
-
-**Linux-раннер (без VM, прямо на Ubuntu):**
-
-1. GitHub → **Settings → Actions → Runners → New self-hosted runner → Linux x64** — виконати показані команди від окремого користувача, до `./config.sh` додати `--labels bastion-linux`.
-2. `sudo usermod -aG docker <користувач-раннера>`
-3. `sudo ./svc.sh install <користувач-раннера> && sudo ./svc.sh start`
-
-**Windows-раннер (VM на KVM):**
-
-1. `sudo apt install qemu-kvm libvirt-daemon-system virt-manager` і `sudo usermod -aG libvirt,kvm $USER`.
-2. ISO: Windows Server 2022 Evaluation (180 днів) або Windows 11 + драйвери virtio-win.
-3. virt-manager: 6 vCPU, 10–12 ГБ RAM, диск 150 ГБ (qcow2, virtio), CPU `host-passthrough`.
-4. У VM встановити Git, Python 3.12, [uv](https://docs.astral.sh/uv/) (`winget install --id astral-sh.uv -e`), .NET SDK 8 і Visual Studio 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону форку). Qt, CMake і WiX workflow ставить сам.
-5. Раннер: **New self-hosted runner → Windows x64**, `--labels bastion-windows`, встановити як службу.
-
-**Безпека:** репозиторій публічний — ніколи не направляйте на self-hosted раннери workflow з подією `pull_request`, бо чужий PR виконає код на вашій машині. `packages.yml` запускається лише вашими пушами, тегами й вручну. Додатково: **Settings → Actions → General → Require approval for all external contributors**.
+Змінні проєкту (**Settings → CI/CD → Variables**, Masked): `BASTION_ANDROID_KEYSTORE`, `BASTION_ANDROID_KEYSTORE_PASSWORD`, `BASTION_ANDROID_KEY_ALIAS` (`bastion`). Сам `bastion.jks` зберігайте поза репозиторієм: без нього оновлення встановлених APK неможливі.
 
 ## Перевірка
 
@@ -230,7 +268,10 @@ just lint
 ## Оновлення з upstream
 
 ```bash
-git remote add upstream https://github.com/mavlink/qgroundcontrol.git
-git fetch upstream
-git rebase upstream/master   # конфлікти найімовірніші у VideoManager.cc, FlyViewVideo.qml, Video.SettingsUI.json
+git remote add upstream https://github.com/mavlink/qgroundcontrol.git   # один раз
+git fetch upstream --tags
+git checkout feat/multi-camera
+git rebase upstream/master   # конфлікти найімовірніші у VideoManager.cc, FlyViewVideo.qml, FlyView.qml, Video.SettingsUI.json
+git push --force-with-lease gitlab feat/multi-camera:main
+git push gitlab upstream/master:upstream-master --tags
 ```

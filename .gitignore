@@ -39,6 +39,7 @@ compile_commands.json
 cpm_modules
 .cache/
 .ccache/
+.venv-ci/
 
 # CTest working files created in the source tree when tests run
 Testing/

@@ -1,0 +1,125 @@
+# QGroundControl-Bastion packages on the self-hosted GitLab.
+#
+# Runners (shell executor, see FORK_CHANGES.md "GitLab CI"):
+#   bastion-linux    Linux with Docker (runner user in the docker group): .deb per Ubuntu release,
+#                    AppImage and Android .apk, built in the Docker images from deploy/docker.
+#   bastion-windows  Windows with Git, Python 3.12, uv, .NET SDK 8 and VS 2022 Build Tools: .msi.
+#
+# Optional CI/CD variables (Settings > CI/CD > Variables, masked):
+#   BASTION_ANDROID_KEYSTORE (base64 .jks), BASTION_ANDROID_KEYSTORE_PASSWORD, BASTION_ANDROID_KEY_ALIAS
+#   Without them the APK is signed with a throwaway key and cannot update an earlier install in place.
+#
+# Pipelines run on pushes that touch the build, on "Run pipeline" and on vX.Y.Z tags; tags also
+# publish the packages as a GitLab release.
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH
+      changes:
+        - .gitlab-ci.yml
+        - CMakeLists.txt
+        - CMakePresets.json
+        - android/**/*
+        - cmake/**/*
+        - deploy/**/*
+        - resources/**/*
+        - src/**/*
+        - tools/**/*
+        - translations/**/*
+        - .github/build-config.json
+
+stages:
+  - build
+  - release
+
+variables:
+  # Package versions come from git describe, which needs the full history and tags.
+  GIT_DEPTH: "0"
+  # Keep compiler caches and downloads between runs on the persistent shell runners.
+  GIT_CLEAN_FLAGS: -ffdx -e .ccache/ -e .cache/ -e .venv-ci/ -e build-msi/
+  UPSTREAM_REPO: https://github.com/mavlink/qgroundcontrol.git
+
+.linux:
+  tags: [bastion-linux]
+  before_script:
+    # Tag-less clones would package as 0.0.0; upstream tags are enough for git describe.
+    - git fetch --no-tags "$UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*" || echo "Upstream tags unavailable, using local tags"
+    - |
+      if ! docker info > /dev/null 2>&1; then
+        echo "Docker is not usable by the runner user $(id -un) (groups: $(id -Gn))."
+        echo "Run: sudo usermod -aG docker $(id -un) && sudo gitlab-runner restart"
+        exit 1
+      fi
+
+deb:
+  extends: .linux
+  stage: build
+  timeout: 3h
+  parallel:
+    matrix:
+      - VARIANT: ubuntu-2204
+        RELEASE: "22.04"
+      - VARIANT: ubuntu
+        RELEASE: "24.04"
+      - VARIANT: ubuntu-2604
+        RELEASE: "26.04"
+  script:
+    - export BUILD_DIR="$CI_PROJECT_DIR/build-$VARIANT"
+    - python3 deploy/docker/run_docker.py build "$VARIANT"
+    - deploy/ci/finalize-deb.sh "$BUILD_DIR" "$RELEASE"
+    # Only the 22.04 AppImage is kept: its older glibc runs on the most distributions.
+    - if [ "$RELEASE" != "22.04" ]; then rm -f "$BUILD_DIR"/*.AppImage; fi
+  artifacts:
+    name: qgroundcontrol-bastion-ubuntu$RELEASE
+    paths:
+      - build-$VARIANT/*.deb
+      - build-$VARIANT/*.deb.sha256
+      - build-$VARIANT/*.AppImage
+    expire_in: 30 days
+
+apk:
+  extends: .linux
+  stage: build
+  timeout: 3h
+  script:
+    - export BUILD_DIR="$CI_PROJECT_DIR/build-apk"
+    - python3 deploy/docker/run_docker.py build android
+    - |
+      export ANDROID_KEYSTORE_BASE64="${BASTION_ANDROID_KEYSTORE:-}"
+      export ANDROID_KEYSTORE_PASSWORD="${BASTION_ANDROID_KEYSTORE_PASSWORD:-}"
+      export ANDROID_KEY_ALIAS="${BASTION_ANDROID_KEY_ALIAS:-}"
+      deploy/ci/sign-apk-docker.sh "$BUILD_DIR" QGroundControl-Bastion.apk
+  artifacts:
+    name: qgroundcontrol-bastion-android
+    paths:
+      - build-apk/QGroundControl-Bastion.apk
+    expire_in: 30 days
+
+msi:
+  stage: build
+  tags: [bastion-windows]
+  timeout: 3h
+  before_script:
+    - git fetch --no-tags "$env:UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*"; if ($LASTEXITCODE -ne 0) { Write-Host "Upstream tags unavailable, using local tags" }
+  script:
+    - powershell -NoProfile -ExecutionPolicy Bypass -File deploy\ci\build-msi.ps1 -BuildDir "$env:CI_PROJECT_DIR\build-msi"
+    - if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  artifacts:
+    name: qgroundcontrol-bastion-windows
+    paths:
+      - build-msi/*.msi
+      - build-msi/*.msi.sha256
+    expire_in: 30 days
+
+release:
+  stage: release
+  tags: [bastion-linux]
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs: [deb, apk, msi]
+  script:
+    - mkdir -p dist
+    - find build-* -maxdepth 1 -type f \( -name '*.deb' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.apk' -o -name '*.msi' \) -exec cp {} dist/ \;
+    - deploy/ci/publish-release.sh dist
