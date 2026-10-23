@@ -1,13 +1,17 @@
 # QGroundControl-Bastion packages on the self-hosted GitLab.
 #
 # Runners (see FORK_CHANGES.md "GitLab CI"):
-#   bastion-linux    Docker executor with privileged = true (Docker-in-Docker): .deb per Ubuntu
-#                    release, AppImage and Android .apk, built in the Docker images from deploy/docker.
+#   bastion-linux    Docker executor with privileged = true (Docker-in-Docker): AppImage, Android .apk
+#                    and .deb per Ubuntu release, built in the Docker images from deploy/docker.
+#                    Concurrent runners need their own dind storage volume each.
 #   bastion-windows  Shell executor on Windows with Git, .NET SDK 8 and VS 2022 Build Tools: .msi.
 #
 # Optional CI/CD variables (Settings > CI/CD > Variables, masked):
 #   BASTION_ANDROID_KEYSTORE (base64 .jks), BASTION_ANDROID_KEYSTORE_PASSWORD, BASTION_ANDROID_KEY_ALIAS
 #   Without them the APK is signed with a throwaway key and cannot update an earlier install in place.
+#
+# Stages: AppImage, .apk and .msi build in parallel, each as its own artifact; once the AppImage
+# job succeeds, the .deb packages for Ubuntu 22.04, 24.04 and 26.04 build in parallel.
 #
 # Pipelines run on pushes that touch the build, on "Run pipeline" and on vX.Y.Z tags; tags also
 # publish the packages as a GitLab release.
@@ -32,6 +36,7 @@ workflow:
 
 stages:
   - build
+  - packages
   - release
 
 variables:
@@ -43,9 +48,6 @@ variables:
 
 .linux:
   tags: [bastion-linux]
-  # One Linux build at a time, whichever runner picks it up: parallel builds exhaust the
-  # laptop's memory, and dind daemons sharing a cached /var/lib/docker volume cannot coexist.
-  resource_group: bastion-linux-build
   # Docker-in-Docker: the job talks to its own dockerd service, which builds the builder images
   # from deploy/docker. The service shares /builds with the job, so the bind mounts done by
   # run_docker.py resolve. The runner needs privileged = true (see FORK_CHANGES.md "GitLab CI").
@@ -72,9 +74,34 @@ variables:
     # Tag-less clones would package as 0.0.0; upstream tags are enough for git describe.
     - git fetch --no-tags "$UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*" || echo "Upstream tags unavailable, using local tags"
 
-deb:
+appimage:
   extends: .linux
   stage: build
+  timeout: 3h
+  script:
+    # Built on Ubuntu 22.04: its older glibc makes the AppImage run on the most distributions.
+    - export BUILD_DIR="$CI_PROJECT_DIR/build-appimage"
+    - python3 deploy/docker/run_docker.py build ubuntu-2204
+    # The job shell is POSIX sh (the image has no bash when the job starts).
+    - |
+      cd "$BUILD_DIR"
+      set -- *.AppImage
+      if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then echo "error: expected one AppImage in $BUILD_DIR"; exit 1; fi
+      sha256sum "$1" > "$1.sha256"
+      cd "$CI_PROJECT_DIR"
+  artifacts:
+    name: qgroundcontrol-bastion-appimage
+    paths:
+      - build-appimage/*.AppImage
+      - build-appimage/*.AppImage.sha256
+    expire_in: 30 days
+
+deb:
+  extends: .linux
+  stage: packages
+  needs:
+    - job: appimage
+      artifacts: false
   timeout: 3h
   parallel:
     matrix:
@@ -88,14 +115,11 @@ deb:
     - export BUILD_DIR="$CI_PROJECT_DIR/build-$VARIANT"
     - python3 deploy/docker/run_docker.py build "$VARIANT"
     - deploy/ci/finalize-deb.sh "$BUILD_DIR" "$RELEASE"
-    # Only the 22.04 AppImage is kept: its older glibc runs on the most distributions.
-    - if [ "$RELEASE" != "22.04" ]; then rm -f "$BUILD_DIR"/*.AppImage; fi
   artifacts:
     name: qgroundcontrol-bastion-ubuntu$RELEASE
     paths:
       - build-$VARIANT/*.deb
       - build-$VARIANT/*.deb.sha256
-      - build-$VARIANT/*.AppImage
     expire_in: 30 days
 
 apk:
@@ -110,10 +134,12 @@ apk:
       export ANDROID_KEYSTORE_PASSWORD="${BASTION_ANDROID_KEYSTORE_PASSWORD:-}"
       export ANDROID_KEY_ALIAS="${BASTION_ANDROID_KEY_ALIAS:-}"
       deploy/ci/sign-apk-docker.sh "$BUILD_DIR" QGroundControl-Bastion.apk
+    - (cd "$BUILD_DIR" && sha256sum QGroundControl-Bastion.apk > QGroundControl-Bastion.apk.sha256)
   artifacts:
     name: qgroundcontrol-bastion-android
     paths:
       - build-apk/QGroundControl-Bastion.apk
+      - build-apk/QGroundControl-Bastion.apk.sha256
     expire_in: 30 days
 
 msi:
@@ -140,7 +166,7 @@ release:
     - apk add --no-cache bash curl python3 > /dev/null
   rules:
     - if: $CI_COMMIT_TAG
-  needs: [deb, apk, msi]
+  needs: [appimage, deb, apk, msi]
   script:
     - mkdir -p dist
     - find build-* -maxdepth 1 -type f \( -name '*.deb' -o -name '*.sha256' -o -name '*.AppImage' -o -name '*.apk' -o -name '*.msi' \) -exec cp {} dist/ \;

@@ -185,12 +185,17 @@ cmake --build --preset Windows-msi --target qgc-package
 
 ### Пайплайн `.gitlab-ci.yml`
 
-| Job | Раннер | Результат (артефакти, 30 днів) |
-| --- | ------ | ------------------------------ |
-| `deb: [ubuntu-2204, 22.04]` / `[ubuntu, 24.04]` / `[ubuntu-2604, 26.04]` | `bastion-linux` | `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb` + `.sha256`; з 22.04 ще AppImage |
-| `apk` | `bastion-linux` | `QGroundControl-Bastion.apk` (підписаний) |
-| `msi` | `bastion-windows` | `QGroundControl-Bastion-<версія>-AMD64.msi` + `.sha256` |
-| `release` (лише для тегів `vX.Y.Z`) | `bastion-linux` | Пакети в **Deploy → Package registry** і реліз у **Deploy → Releases** |
+Етапи: спершу паралельно `appimage`, `apk` і `msi` (кожен — окремий артефакт); коли `appimage` успішний, паралельно збираються `deb` для трьох релізів Ubuntu.
+
+| Job | Етап | Раннер | Результат (артефакти, 30 днів) |
+| --- | ---- | ------ | ------------------------------ |
+| `appimage` | build | `bastion-linux` | `QGroundControl-Bastion-x86_64.AppImage` + `.sha256` (зібрано на Ubuntu 22.04) |
+| `apk` | build | `bastion-linux` | `QGroundControl-Bastion.apk` (підписаний) + `.sha256` |
+| `msi` | build | `bastion-windows` | `QGroundControl-Bastion-<версія>-AMD64.msi` + `.sha256` |
+| `deb: [ubuntu-2204, 22.04]` / `[ubuntu, 24.04]` / `[ubuntu-2604, 26.04]` | packages | `bastion-linux` | `qgroundcontrol-bastion_<версія>_ubuntu<реліз>_amd64.deb` + `.sha256` |
+| `release` (лише для тегів `vX.Y.Z`) | release | `bastion-linux` | Пакети в **Deploy → Package registry** і реліз у **Deploy → Releases** |
+
+Linux-jobs ідуть паралельно, тому кожен Linux-раннер має мати власний том для dind (`/var/lib/docker`).
 
 Запускається пушем, що змінює код/збірку (зміни лише в документації не запускають), кнопкою **Build → Pipelines → Run pipeline** і тегом:
 
@@ -217,13 +222,13 @@ sudo gitlab-runner register --non-interactive --url http://<адреса-gitlab>
 Потрібно в `config.toml` раннера:
 
 ```toml
-concurrent = 1                      # збірки важкі; щонайменше один job за раз
+concurrent = 1                      # на реєстрацію; паралельність — кількома раннерами з окремими томами
 
 [[runners]]
   [runners.docker]
     privileged = true               # для docker:dind
     # Кеш образів dind між jobs: без нього кожен job наново збирає образ (Qt, SDK).
-    # Один том на раннер, тому лише з concurrent = 1.
+    # Окремий том для кожного раннера: два dind не можуть працювати з одним томом.
     volumes = ["/cache", "bastion-dind:/var/lib/docker"]
 ```
 
