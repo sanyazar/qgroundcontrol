@@ -4,6 +4,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QSize>
 #include <QtCore/QString>
+#include <QtCore/QVariantMap>
 #include <QtQmlIntegration/QtQmlIntegration>
 
 class GstCameraAudio;
@@ -35,6 +36,10 @@ class MultiCameraStream : public QObject
     /// The user wants to talk through the camera's speaker; talkbackActive once the microphone is streaming.
     Q_PROPERTY(bool talkbackEnabled READ talkbackEnabled WRITE setTalkbackEnabled NOTIFY talkbackEnabledChanged)
     Q_PROPERTY(bool talkbackActive READ talkbackActive NOTIFY talkbackActiveChanged)
+    /// Vehicle width guide lines configured for this camera (CameraGuidesOverlay settings); empty when none.
+    Q_PROPERTY(QVariantMap guides READ guides NOTIFY guidesChanged)
+    /// The user's on/off for the guide lines of this stream.
+    Q_PROPERTY(bool guidesVisible READ guidesVisible WRITE setGuidesVisible NOTIFY guidesVisibleChanged)
 
 public:
     MultiCameraStream(const QString& key, int vehicleId, bool fromMavlink, QObject* parent = nullptr);
@@ -80,6 +85,14 @@ public:
 
     bool talkbackActive() const { return _talkbackActive; }
 
+    QVariantMap guides() const { return _guides; }
+
+    void setGuides(const QVariantMap& guides);
+
+    bool guidesVisible() const { return _guidesVisible; }
+
+    void setGuidesVisible(bool visible);
+
     void setLabel(const QString& label);
     void setUri(const QString& uri);
     void setBackendReady(bool ready);
@@ -99,6 +112,8 @@ signals:
     void audioPlayingChanged();
     void talkbackEnabledChanged();
     void talkbackActiveChanged();
+    void guidesChanged();
+    void guidesVisibleChanged();
 
 private:
     void _createReceiver();
@@ -133,4 +148,6 @@ private:
     bool _audioPlaying = false;
     bool _talkbackEnabled = false;
     bool _talkbackActive = false;
+    QVariantMap _guides;
+    bool _guidesVisible = true;
 };

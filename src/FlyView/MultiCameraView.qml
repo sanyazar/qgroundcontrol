@@ -240,6 +240,15 @@ Item {
                                         : VideoOutput.PreserveAspectFit
                 }
 
+                // Vehicle width guides over the picture of the main camera.
+                CameraGuidesOverlay {
+                    anchors.fill:   parent
+                    area:           videoOutput.contentRect
+                    visible:        tile.showsFullControls && !tile.streamWindow && !!tile.stream && !!tile.stream.guides &&
+                                    tile.stream.guides.enabled === true && tile.stream.guidesVisible
+                    guides:         tile.stream ? tile.stream.guides : ({})
+                }
+
                 QGCLabel {
                     anchors.centerIn:   parent
                     visible:            !tile.streamWindow && !(tile.stream && tile.stream.decoding)
@@ -311,6 +320,7 @@ Item {
                     stream:                 tile.stream
                     buttonSize:             root._buttonSize
                     showHide:               true
+                    showGuides:             true
                 }
 
                 // Above the column: every camera with a sub stream (presets, custom URLs with a sub stream URL) on

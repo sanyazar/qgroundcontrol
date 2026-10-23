@@ -105,6 +105,7 @@ private:
         int streamId = 0;
         bool fromMavlink = false;
         bool switchable = false;  ///< Has a main and a sub stream.
+        QVariantMap guides;       ///< Vehicle width guide settings, empty when the camera has none.
     };
 
     QList<StreamSpec> _collectStreams();

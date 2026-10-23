@@ -37,6 +37,17 @@ constexpr int kDefaultRtspPort = 554;
 const QString kHiddenStreamsSettingsKey = QStringLiteral("MultiCamera/hiddenStreams");
 const QString kStreamQualitySettingsKey = QStringLiteral("MultiCamera/streamQuality");
 
+/// Guide line settings of a camera entry (see CameraGuidesOverlay.qml), with "enabled", or empty when off.
+QVariantMap entryGuides(const QJsonObject& entry)
+{
+    if (!entry.value(QStringLiteral("guidesEnabled")).toBool()) {
+        return {};
+    }
+    QVariantMap guides = entry.value(QStringLiteral("guides")).toObject().toVariantMap();
+    guides.insert(QStringLiteral("enabled"), true);
+    return guides;
+}
+
 bool isCustomEntry(const QJsonObject& entry)
 {
     const QString type = entry.value(QStringLiteral("type")).toString();
@@ -464,6 +475,7 @@ void MultiCameraManager::_appendLinkStreams(QList<StreamSpec>& specs)
             spec.uri = uri;
             spec.vehicleId = vehicleId;
             spec.switchable = hasSubStream(entry);
+            spec.guides = entryGuides(entry);
             specs.append(spec);
         }
     }
@@ -494,6 +506,7 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         spec.uri = uri;
         spec.vehicleId = vehicleId;
         spec.switchable = hasSubStream(entry);
+        spec.guides = entryGuides(entry);
         specs.append(spec);
     }
 }
@@ -665,6 +678,7 @@ void MultiCameraManager::_rebuild()
             stream = new MultiCameraStream(spec.key, spec.vehicleId, spec.fromMavlink, this);
             stream->setLabel(spec.label);
             stream->setUri(spec.uri);
+            stream->setGuides(spec.guides);
             stream->setBackendReady(_backendReady);
             _streams.append(stream);
             if (spec.fromMavlink) {
@@ -674,6 +688,7 @@ void MultiCameraManager::_rebuild()
         } else {
             stream->setLabel(spec.label);
             stream->setUri(spec.uri);
+            stream->setGuides(spec.guides);
         }
     }
 

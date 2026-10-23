@@ -64,6 +64,26 @@ Give every UDP stream its own port.
 A typical two-vehicle, two-camera setup is `udp://0.0.0.0:5600` and `udp://0.0.0.0:5601` for vehicle 1, and `udp://0.0.0.0:5602` and `udp://0.0.0.0:5603` for vehicle 2.
 :::
 
+### Vehicle Width Guides
+
+For a ground vehicle, each camera can show parking-sensor style guide lines: the vehicle's side lines and cross lines at set distances in front of it (red nearest, then yellow and green), so the pilot sees what fits between the vehicle's sides.
+Check **Vehicle width guides** in the camera's settings and press **Guide Settings...** to set them up in a window of their own, with a live preview:
+
+| Setting | Meaning |
+| ------- | ------- |
+| Width, m | Outer width of the vehicle |
+| Lens to front, m | From the camera lens forward to the vehicle's front (bumper); the lines start there |
+| Height, m / Tilt down, ° | Height of the lens above the ground and its downward tilt |
+| Horizontal FOV, ° | Horizontal field of view of the picture (from the camera's datasheet; narrower in a cropped sub stream) |
+| Offset right, m | Lens to the right of the vehicle's centre line (negative: left) |
+| Mirrored picture | For rear cameras that mirror the image |
+| Distance lines from the front, m | Cross lines, for example `0.5, 1, 2, 3` |
+| Shift right / down, % | Fine adjustment of the whole drawing |
+| Line width, Distance labels | Appearance |
+
+The guides show on the camera's video while it is the full-size camera or in a separate window. The car button in the button column turns them off and on for that stream.
+To calibrate, put markers (or a tape) on the ground at the cross line distances and adjust **Tilt** first, then **FOV** and the shifts until the lines match.
+
 ### Camera Presets
 
 For Dahua, Hikvision and Uniview IP cameras and NVRs you do not need to know the RTSP URL.
@@ -113,6 +133,7 @@ The buttons in a column at the right edge of the full-size video, between the in
 | Speaker | **Camera audio** on/off: plays the camera's microphone through the computer's speakers. Dimmed while it connects. |
 | Microphone | **Talk** on/off: sends the computer's microphone to the camera's speaker; red while on (full-size video only). |
 | Window | **Separate window** (camera blocks only): shows the stream in a window of its own, for example on a second monitor (desktop only). |
+| Car | **Vehicle width guides** on/off (full-size video and separate windows, cameras with guides set up). |
 | Crossed-out eye | **Remove from the view**: the camera is no longer shown or decoded (remembered across restarts). |
 
 Removed cameras are counted on a button (crossed-out eye and a number) after the camera blocks; its menu shows each removed camera again, or all of them.

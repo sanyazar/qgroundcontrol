@@ -305,6 +305,25 @@ ColumnLayout {
                     }
                 }
 
+                // Vehicle width guide lines (parking-sensor style) over this camera's picture
+                RowLayout {
+                    spacing: ScreenTools.defaultFontPixelWidth
+
+                    QGCCheckBox {
+                        text: qsTr("Vehicle width guides")
+                        checked: entryCard.modelData.guidesEnabled === true
+                        onClicked: _root._update(entryCard.index, { guidesEnabled: checked })
+                    }
+
+                    QGCButton {
+                        text: qsTr("Guide Settings...")
+                        enabled: entryCard.modelData.guidesEnabled === true
+                        onClicked: guidesDialogFactory.open({ title: qsTr("Guides: %1").arg(entryCard.modelData.name || ""),
+                                                              entryIndex: entryCard.index,
+                                                              initialGuides: entryCard.modelData.guides || {} })
+                    }
+                }
+
                 QGCLabel {
                     Layout.fillWidth: true
                     visible: entryCard._isPreset
@@ -321,6 +340,20 @@ ColumnLayout {
     QGCButton {
         text: _root.addButtonText
         onClicked: _root._add()
+    }
+
+    QGCPopupDialogFactory {
+        id: guidesDialogFactory
+
+        dialogComponent: guidesDialogComponent
+    }
+
+    Component {
+        id: guidesDialogComponent
+
+        CameraGuidesDialog {
+            onGuidesAccepted: (index, guides) => _root._update(index, { guides: guides })
+        }
     }
 
     QGCPalette {

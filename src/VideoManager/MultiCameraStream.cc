@@ -462,3 +462,19 @@ void MultiCameraStream::_setTalkbackActive(bool active)
         emit talkbackActiveChanged();
     }
 }
+
+void MultiCameraStream::setGuides(const QVariantMap& guides)
+{
+    if (guides != _guides) {
+        _guides = guides;
+        emit guidesChanged();
+    }
+}
+
+void MultiCameraStream::setGuidesVisible(bool visible)
+{
+    if (visible != _guidesVisible) {
+        _guidesVisible = visible;
+        emit guidesVisibleChanged();
+    }
+}

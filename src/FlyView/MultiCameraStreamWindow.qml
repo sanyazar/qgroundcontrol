@@ -41,6 +41,14 @@ Window {
                             : VideoOutput.PreserveAspectFit
     }
 
+    CameraGuidesOverlay {
+        anchors.fill:   parent
+        area:           videoOutput.contentRect
+        visible:        !!window.stream && !!window.stream.guides && window.stream.guides.enabled === true &&
+                        window.stream.guidesVisible
+        guides:         window.stream ? window.stream.guides : ({})
+    }
+
     QGCLabel {
         anchors.centerIn:   parent
         visible:            !(window.stream && window.stream.decoding)
@@ -63,6 +71,7 @@ Window {
         anchors.rightMargin:    window._margin
         anchors.verticalCenter: parent.verticalCenter
         vertical:               true
+        showGuides:             true
         stream:                 window.stream
     }
 

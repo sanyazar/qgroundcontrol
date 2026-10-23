@@ -16,12 +16,13 @@ Grid {
     property bool showTalk:         true
     property bool showWindow:       false
     property bool showHide:         false
+    property bool showGuides:       false
     property bool vertical:         false
 
     /// The "open in a separate window" button was pressed.
     signal openWindowClicked()
 
-    columns:    vertical ? 1 : 6
+    columns:    vertical ? 1 : 7
     spacing:    buttonSize / 4
 
     readonly property bool _decoding:   !!stream && stream.decoding
@@ -34,7 +35,8 @@ Grid {
 
         property real   size:       ScreenTools.defaultFontPixelHeight * 2
         property string iconSource: ""
-        property bool   highlighted: false     ///< Red background, e.g. while talking
+        property bool   highlighted: false     ///< Coloured background, e.g. while talking
+        property color  highlightColor: Qt.rgba(0.9, 0.15, 0.15, 0.85)
         property bool   pending:    false      ///< Requested but not running yet: dimmed
         property string toolTip:    ""
         default property alias content: extra.data
@@ -44,7 +46,7 @@ Grid {
         width:      size
         height:     size
         radius:     size / 2
-        color:      highlighted ? Qt.rgba(0.9, 0.15, 0.15, 0.85) : Qt.rgba(0, 0, 0, 0.6)
+        color:      highlighted ? highlightColor : Qt.rgba(0, 0, 0, 0.6)
         opacity:    enabled ? (pending ? 0.55 : 1) : 0.4
 
         QGCColoredImage {
@@ -136,6 +138,18 @@ Grid {
         iconSource: "/InstrumentValueIcons/window-new.svg"
         toolTip:    enabled ? qsTr("Open in a separate window") : qsTr("Stop recording to open in a separate window")
         onClicked:  control.openWindowClicked()
+    }
+
+    // Vehicle width guide lines on/off, for cameras that have them set up.
+    CircleButton {
+        size:           control.buttonSize
+        visible:        control.showGuides && !!control.stream && !!control.stream.guides && control.stream.guides.enabled === true
+        iconSource:     "/InstrumentValueIcons/travel-car.svg"
+        highlighted:    control.stream && control.stream.guidesVisible
+        highlightColor: Qt.rgba(0.15, 0.6, 0.3, 0.85)
+        toolTip:        control.stream && control.stream.guidesVisible ? qsTr("Hide vehicle width guides")
+                                                                       : qsTr("Show vehicle width guides")
+        onClicked:      control.stream.guidesVisible = !control.stream.guidesVisible
     }
 
     // Remove from the view; the hidden-cameras button next to the camera blocks brings it back.

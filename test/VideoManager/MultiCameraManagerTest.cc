@@ -192,6 +192,31 @@ void MultiCameraManagerTest::_testStreamQuality()
     QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
 }
 
+void MultiCameraManagerTest::_testGuides()
+{
+    VideoSettings* const videoSettings = SettingsManager::instance()->videoSettings();
+    MultiCameraManager manager;
+    manager.init();
+
+    videoSettings->multiCameraStreams()->setRawValue(QStringLiteral(
+        R"([{"name":"Front","uri":"rtsp://10.0.0.2/front","guidesEnabled":true,)"
+        R"("guides":{"vehicleWidth":1.4,"distances":"1, 2"}},)"
+        R"({"name":"Down","uri":"udp://0.0.0.0:5600","guidesEnabled":false,"guides":{"vehicleWidth":2}}])"));
+    videoSettings->multiCameraMaxStreams()->setRawValue(4);
+    videoSettings->multiCameraEnabled()->setRawValue(true);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 2, kRebuildTimeoutMs);
+
+    const QVariantMap guides = manager.streams()->value<MultiCameraStream*>(0)->guides();
+    QCOMPARE(guides.value(QStringLiteral("enabled")).toBool(), true);
+    QCOMPARE(guides.value(QStringLiteral("vehicleWidth")).toDouble(), 1.4);
+    QCOMPARE(guides.value(QStringLiteral("distances")).toString(), QStringLiteral("1, 2"));
+    // Settings kept while switched off do not show.
+    QVERIFY(manager.streams()->value<MultiCameraStream*>(1)->guides().isEmpty());
+
+    videoSettings->multiCameraEnabled()->setRawValue(false);
+    QTRY_COMPARE_WITH_TIMEOUT(manager.streams()->count(), 0, kRebuildTimeoutMs);
+}
+
 void MultiCameraManagerTest::_testCameraPresetUris_data()
 {
     QTest::addColumn<QString>("entryJson");
