@@ -43,6 +43,9 @@ variables:
 
 .linux:
   tags: [bastion-linux]
+  # One Linux build at a time, whichever runner picks it up: parallel builds exhaust the
+  # laptop's memory, and dind daemons sharing a cached /var/lib/docker volume cannot coexist.
+  resource_group: bastion-linux-build
   # Docker-in-Docker: the job talks to its own dockerd service, which builds the builder images
   # from deploy/docker. The service shares /builds with the job, so the bind mounts done by
   # run_docker.py resolve. The runner needs privileged = true (see FORK_CHANGES.md "GitLab CI").

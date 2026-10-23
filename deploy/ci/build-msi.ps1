@@ -54,6 +54,8 @@ function Resolve-Uv {
 }
 $uv = Resolve-Uv
 Write-Host "Using uv: $uv"
+# QGC's Python tools (install_qt.py) look uv up on PATH.
+$env:PATH = "$(Split-Path $uv);$env:PATH"
 
 # Locked Python environment for QGC's generators, aqtinstall and the pinned CMake/Ninja.
 $venv = Join-Path $repo '.venv-ci'
