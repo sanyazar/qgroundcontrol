@@ -71,7 +71,19 @@ def build_variant(variant_id: str, build_type: str) -> None:
     ]
     for key, value in variant["build_args"].items():
         command += ["--build-arg", f"{key}={value}"]
-    subprocess.run([*command, "-t", image, str(REPO_ROOT)], check=True)
+    # Optional shared cache in a registry (used by GitLab CI): DOCKER_CACHE_FROM lists images whose
+    # layers may be reused, DOCKER_PUSH_IMAGE=1 pushes the result so other runners can reuse it.
+    cache_from = os.environ.get("DOCKER_CACHE_FROM", "").split()
+    if cache_from:
+        command += ["--build-arg", "BUILDKIT_INLINE_CACHE=1"]
+        for ref in cache_from:
+            command += ["--cache-from", ref]
+    # Keep the variant's own name as well: helper scripts (e.g. deploy/ci/sign-apk-docker.sh) use it.
+    tags = ["-t", image] + (["-t", variant["image"]] if image != variant["image"] else [])
+    subprocess.run([*command, *tags, str(REPO_ROOT)], check=True)
+    if os.environ.get("DOCKER_PUSH_IMAGE") == "1":
+        if subprocess.run(["docker", "push", image]).returncode != 0:
+            print(f"warning: could not push {image}; continuing without updating the cache", file=sys.stderr)
     os.environ["SOURCE_DIR"] = str(REPO_ROOT)
     if variant_id == "aarch64":
         os.environ.setdefault("BUILD_DIR", str(REPO_ROOT / "build-aarch64"))

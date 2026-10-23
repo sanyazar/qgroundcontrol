@@ -15,6 +15,10 @@
 # The deb-native jobs are manual: a .deb compiled for one Ubuntu release against its system
 # libraries; start them with the play button in the pipeline.
 #
+# Builder images: the Linux jobs push their builder image to the project's Container Registry as
+# builder-<variant>:<branch> and reuse its layers (and the default branch's) on the next run, so all
+# runners share one cache. Without the registry the jobs build as before.
+#
 # Versions: deploy/ci/version.sh, <QGC version>+bastion<BASTION_VERSION>[~<branch>]-<pipeline>.
 #
 # Pipelines run on pushes that touch the build, on "Run pipeline" and on bastion-vX.Y.Z tags; tags
@@ -77,6 +81,17 @@ variables:
         echo "Set privileged = true under [runners.docker] in the runner's config.toml and restart the runner."
         exit 1
       fi
+    # Shared builder-image cache in the Container Registry (run_docker.py reads these variables).
+    - |
+      if [ -n "${BUILDER_VARIANT:-}" ] && [ -n "${CI_REGISTRY:-}" ] \
+          && echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY" > /dev/null 2>&1; then
+        export IMAGE_NAME="$CI_REGISTRY_IMAGE/builder-$BUILDER_VARIANT:$CI_COMMIT_REF_SLUG"
+        export DOCKER_CACHE_FROM="$IMAGE_NAME $CI_REGISTRY_IMAGE/builder-$BUILDER_VARIANT:$CI_DEFAULT_BRANCH"
+        export DOCKER_PUSH_IMAGE=1
+        echo "Builder image: $IMAGE_NAME"
+      else
+        echo "Container Registry unavailable, building the builder image without the shared cache."
+      fi
     # Tag-less clones would package as 0.0.0; upstream tags are enough for git describe.
     - git fetch --no-tags "$UPSTREAM_REPO" "+refs/tags/v*:refs/tags/v*" || echo "Upstream tags unavailable, using local tags"
 
@@ -93,6 +108,8 @@ appimage:
   extends: .linux
   stage: build
   timeout: 3h
+  variables:
+    BUILDER_VARIANT: ubuntu-2204
   script:
     # Built on Ubuntu 22.04: its older glibc makes the AppImage run on the most distributions.
     - export BUILD_DIR="$CI_PROJECT_DIR/build-appimage"
@@ -144,6 +161,8 @@ deb-native:
         RELEASE: "24.04"
       - VARIANT: ubuntu-2604
         RELEASE: "26.04"
+  variables:
+    BUILDER_VARIANT: $VARIANT
   script:
     - export BUILD_DIR="$CI_PROJECT_DIR/build-$VARIANT"
     - python3 deploy/docker/run_docker.py build "$VARIANT"
@@ -160,6 +179,8 @@ apk:
   extends: .linux
   stage: build
   timeout: 3h
+  variables:
+    BUILDER_VARIANT: android
   script:
     - export BUILD_DIR="$CI_PROJECT_DIR/build-apk"
     - python3 deploy/docker/run_docker.py build android
