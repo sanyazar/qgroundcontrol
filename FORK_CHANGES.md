@@ -204,31 +204,34 @@ Linux-збірки йдуть у тих самих Docker-образах, що �
 
 ### Раннери
 
-**Linux (ноутбук)**, shell executor:
+**Linux (ноутбук)**, Docker executor з Docker-in-Docker. Jobs працюють в образі `docker:29.1.4` і збирають Docker-образи з `deploy/docker` у власному сервісі `docker:29.1.4-dind`. Тека `/builds` спільна для job і сервісу, тому bind-mount з `run_docker.py` працює.
 
-```bash
-sudo curl -L -o /usr/local/bin/gitlab-runner \
-    https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64
-sudo chmod +x /usr/local/bin/gitlab-runner
-sudo useradd --comment 'GitLab Runner' --create-home gitlab-runner --shell /bin/bash
-sudo usermod -aG docker gitlab-runner
-sudo gitlab-runner install --user=gitlab-runner --working-directory=/home/gitlab-runner
-sudo gitlab-runner start
-```
-
-У GitLab: проєкт → **Settings → CI/CD → Runners → New project runner**: Tags `bastion-linux`, «Run untagged jobs» вимкнено → **Create runner**, скопіювати токен `glrt-…`:
+У GitLab: **Admin → CI/CD → Runners → New instance runner**: Tags `bastion-linux`, «Run untagged jobs» вимкнено → **Create runner**, скопіювати токен `glrt-…`. Раннер у контейнері (`gitlab/gitlab-runner`) або встановлений пакетом:
 
 ```bash
 sudo gitlab-runner register --non-interactive --url http://<адреса-gitlab> \
-    --token glrt-XXXX --executor shell --description bastion-linux
-sudo gitlab-runner restart
+    --token glrt-XXXX --executor docker --docker-image alpine:3.22 \
+    --docker-privileged --description bastion-linux
 ```
 
-Потрібні на ноутбуці: Docker, `python3`, `dpkg-deb`, `curl` (є в Ubuntu). Старий GitHub-раннер можна прибрати: `cd ~/actions-runner && sudo ./svc.sh stop && sudo ./svc.sh uninstall`.
+Потрібно в `config.toml` раннера:
+
+```toml
+concurrent = 1                      # збірки важкі; щонайменше один job за раз
+
+[[runners]]
+  [runners.docker]
+    privileged = true               # для docker:dind
+    # Кеш образів dind між jobs: без нього кожен job наново збирає образ (Qt, SDK).
+    # Один том на раннер, тому лише з concurrent = 1.
+    volumes = ["/cache", "bastion-dind:/var/lib/docker"]
+```
+
+Після змін: `docker restart <контейнер-раннера>` або `sudo gitlab-runner restart`. AppImage пакується без FUSE (`QGC_DOCKER_FUSE=0`). Старий GitHub-раннер можна прибрати: `cd ~/actions-runner && sudo ./svc.sh stop && sudo ./svc.sh uninstall`.
 
 **Windows (VM)**, shell executor, PowerShell (адміністратор):
 
-1. Інструменти, якщо ще не встановлені: Git, Python 3.12, uv (`winget install --id astral-sh.uv -e`), .NET SDK 8, VS 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону репозиторію).
+1. Інструменти, якщо ще не встановлені: Git, .NET SDK 8, VS 2022 Build Tools (`python tools\setup\install_dependencies --platform windows --msvc` з клону репозиторію).
 2. Раннер:
 
    ```powershell
@@ -242,7 +245,7 @@ sudo gitlab-runner restart
    .\gitlab-runner.exe start
    ```
 
-   Токен — з **New project runner** з тегом `bastion-windows`. Короткий `--builds-dir C:\b` потрібен, бо шляхи Qt перевищують ліміт Windows. Службу запускайте від користувача, під яким встановлено uv, Python і .NET (`builder`).
+   Токен — з **New project runner** з тегом `bastion-windows`. Короткий `--builds-dir C:\b` потрібен, бо шляхи Qt перевищують ліміт Windows. `build-msi.ps1` сам знаходить uv або встановлює його в `C:\ci-tools\uv`, а Python 3.12 завантажує через uv, тож службі вистачає встановлених для всіх користувачів Git, .NET і Build Tools.
 
 ### Підпис Android
 

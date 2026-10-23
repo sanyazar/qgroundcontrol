@@ -37,7 +37,8 @@ def run_image(image: str, build_type: str, *, fuse: bool = False) -> None:
     for name in ("CCACHE_MAXSIZE", "CCACHE_NOFILECLONE", "MOCCACHE_MAX_SIZE", "MOCCACHE_STATS"):
         if name in os.environ:
             command += ["--env", f"{name}={os.environ[name]}"]
-    if fuse:
+    # AppImage tools fall back to extract-and-run, so CI can skip FUSE where /dev/fuse is unavailable.
+    if fuse and os.environ.get("QGC_DOCKER_FUSE", "1") != "0":
         command += [
             "--cap-add",
             "SYS_ADMIN",
