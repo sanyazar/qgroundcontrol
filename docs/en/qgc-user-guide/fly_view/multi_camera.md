@@ -109,7 +109,7 @@ The buttons in a column at the right edge of the full-size video, between the in
 | Camera | **Photo**: save the current frame of this stream (full-size video only). |
 | Speaker | **Camera audio** on/off: plays the camera's microphone through the computer's speakers. Dimmed while it connects. |
 | Microphone | **Talk** on/off: sends the computer's microphone to the camera's speaker; red while on (full-size video only). |
-| Window | **Separate window**: shows the stream in a window of its own, for example on a second monitor (desktop only). |
+| Window | **Separate window** (camera blocks only): shows the stream in a window of its own, for example on a second monitor (desktop only). |
 | Crossed-out eye | **Remove from the view**: the camera is no longer shown or decoded (remembered across restarts). |
 
 Removed cameras are counted on a button (crossed-out eye and a number) after the camera blocks; its menu shows each removed camera again, or all of them.

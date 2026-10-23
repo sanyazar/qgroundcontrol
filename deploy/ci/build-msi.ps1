@@ -111,10 +111,35 @@ Invoke-Native 'configure' {
     cmake --preset Windows-msi -S $repo -B $BuildDir "-DPython3_EXECUTABLE=$python" -DQGC_ENABLE_GST_VIDEOSTREAMING=ON
 }
 Invoke-Native 'build' { cmake --build $BuildDir --config Release --parallel }
+# The build directory is kept between runs: drop the packages of earlier runs.
+Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Name -like '*.msi' -or $_.Name -like '*.msi.sha256' } |
+    Remove-Item -Force
 Invoke-Native 'package' { cmake --build $BuildDir --config Release --target qgc-package }
 
-$packages = Get-ChildItem -Path $BuildDir -Filter '*.msi' -File
-if (-not $packages) {
-    throw "Packaging finished but no .msi was found in $BuildDir"
+$packages = @(Get-ChildItem -Path $BuildDir -Filter '*.msi' -File)
+if ($packages.Count -ne 1) {
+    throw "Expected one .msi in $BuildDir, found $($packages.Count)"
 }
-$packages | ForEach-Object { Write-Host "Package: $($_.FullName)" }
+
+# Package version as for the other packages (deploy/ci/version.sh), run with Git for Windows' bash: the bash
+# on PATH may be WSL's.
+$gitDir = Split-Path (Get-Command git).Source
+$gitBash = @(
+    (Join-Path (Split-Path $gitDir) 'bin\bash.exe'),
+    (Join-Path (Split-Path (Split-Path $gitDir)) 'bin\bash.exe'),
+    (Join-Path $env:ProgramFiles 'Git\bin\bash.exe')
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $gitBash) {
+    throw "Git for Windows bash not found next to $gitDir"
+}
+$version = ((& $gitBash 'deploy/ci/version.sh') | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $version) {
+    throw 'deploy/ci/version.sh failed'
+}
+$msi = $packages[0]
+# Windows Installer keeps the numeric QGC version inside the package; the file name carries the full one.
+$name = "QGroundControl-Bastion-$version-AMD64.msi"
+Move-Item -Force $msi.FullName (Join-Path $BuildDir $name)
+$hash = (Get-FileHash -Algorithm SHA256 (Join-Path $BuildDir $name)).Hash.ToLowerInvariant()
+Set-Content -Encoding ascii -NoNewline -Path (Join-Path $BuildDir "$name.sha256") -Value "$hash  $name`n"
+Write-Host "Package: $(Join-Path $BuildDir $name)"

@@ -198,9 +198,7 @@ Item {
                     vertical:               true
                     stream:                 tile.stream
                     buttonSize:             root._buttonSize
-                    showWindow:             true
                     showHide:               true
-                    onOpenWindowClicked:    tile.openWindow()
                 }
 
                 MultiCameraStreamControls {
