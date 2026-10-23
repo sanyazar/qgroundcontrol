@@ -5,8 +5,9 @@ import QGroundControl
 import QGroundControl.Controls
 
 /// Buttons for one MultiCameraManager stream: record, photo, camera audio, talk to the camera and open in a
-/// separate window. Which buttons show is chosen by the show* properties; record and photo need video.
-Row {
+/// separate window, in a row or (vertical) a column. Which buttons show is chosen by the show* properties;
+/// record and photo need video.
+Grid {
     id: control
 
     required property var stream
@@ -14,11 +15,13 @@ Row {
     property bool showPhoto:        true
     property bool showTalk:         true
     property bool showWindow:       false
+    property bool vertical:         false
 
     /// The "open in a separate window" button was pressed.
     signal openWindowClicked()
 
-    spacing: buttonSize / 4
+    columns:    vertical ? 1 : 5
+    spacing:    buttonSize / 4
 
     readonly property bool _decoding:   !!stream && stream.decoding
     readonly property bool _audio:      !!stream && stream.audioSupported

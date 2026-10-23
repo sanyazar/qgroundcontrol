@@ -41,7 +41,8 @@ Rectangle {
             elide:          Text.ElideRight
             text:           control.stream ? control.stream.label : ""
             color:          "white"
-            font.pointSize: control.small ? ScreenTools.smallFontPointSize : ScreenTools.defaultFontPointSize
+            font.pointSize: control.small ? ScreenTools.defaultFontPointSize : ScreenTools.mediumFontPointSize
+            font.bold:      true
         }
     }
 }

@@ -59,9 +59,10 @@ Window {
     }
 
     MultiCameraStreamControls {
-        anchors.left:           nameLabel.right
-        anchors.leftMargin:     window._margin
-        anchors.verticalCenter: nameLabel.verticalCenter
+        anchors.right:          parent.right
+        anchors.rightMargin:    window._margin
+        anchors.verticalCenter: parent.verticalCenter
+        vertical:               true
         stream:                 window.stream
     }
 

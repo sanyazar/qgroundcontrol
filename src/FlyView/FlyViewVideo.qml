@@ -15,6 +15,10 @@ Item {
     /// Free top left corner of the full size video for the camera name and buttons (FlyView coordinates).
     property real cameraOverlayLeft:    ScreenTools.defaultFontPixelWidth
     property real cameraOverlayTop:     ScreenTools.defaultFontPixelWidth
+    /// Free band at the right edge of the full size video for the camera buttons (FlyView coordinates).
+    property real cameraControlsRight:  ScreenTools.defaultFontPixelWidth
+    property real cameraControlsTop:    ScreenTools.defaultFontPixelWidth
+    property real cameraControlsBottom: height - ScreenTools.defaultFontPixelWidth
     readonly property int cameraStripCount: _multiCameraMode ? multiCameraView.stripCount : 0
 
     /// A camera block in the strip was clicked; it is now the selected camera.
@@ -73,6 +77,9 @@ Item {
         visible:            _root._multiCameraMode
         mainOverlayLeft:    _root.cameraOverlayLeft
         mainOverlayTop:     _root.cameraOverlayTop
+        mainControlsRight:  _root.cameraControlsRight
+        mainControlsTop:    _root.cameraControlsTop
+        mainControlsBottom: _root.cameraControlsBottom
         stripHost:          _root._multiCameraMode ? _root.cameraStripHost : null
         stripTileWidth:     _root.cameraStripTileWidth
         onCameraSelected:   _root.cameraSelected()

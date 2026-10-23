@@ -139,6 +139,13 @@ Item {
             cameraOverlayLeft:      _cameraOverlayClear ? _toolsMargin
                                                         : widgetLayer.x + _layerOccluders.toolStrip.x + _layerOccluders.toolStrip.width + _toolsMargin
             cameraOverlayTop:       _cameraOverlayClear ? _toolsMargin : widgetLayer.y
+            // Between the top right and bottom right instrument panels, left of the guided value slider.
+            cameraControlsRight:    _cameraOverlayClear ? _toolsMargin
+                                                        : width - (widgetLayer.x + widgetLayer.width) + _toolsMargin
+            cameraControlsTop:      _cameraOverlayClear ? _toolsMargin
+                                                        : widgetLayer.y + _layerOccluders.topRight.y + _layerOccluders.topRight.height + _toolsMargin
+            cameraControlsBottom:   _cameraOverlayClear ? height - _toolsMargin
+                                                        : widgetLayer.y + _layerOccluders.bottomRight.y - _toolsMargin
 
             readonly property bool _cameraOverlayClear: QGroundControl.videoManager.fullScreen ||
                                                         pipState.state !== pipState.fullState

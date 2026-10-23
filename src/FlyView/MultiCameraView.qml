@@ -20,6 +20,11 @@ Item {
     /// and tool strip; FlyView sets it.
     property real mainOverlayLeft:  _margin
     property real mainOverlayTop:   _margin
+    /// Free band at the right edge of the main camera for its button column, clear of the Fly View's
+    /// instrument panels; FlyView sets it.
+    property real mainControlsRight:    _margin
+    property real mainControlsTop:      _margin
+    property real mainControlsBottom:   height - _margin
 
     /// A camera block other than the main one was clicked; it is now the main camera.
     signal cameraSelected()
@@ -170,7 +175,8 @@ Item {
                 }
 
                 // Camera name in the top left corner of the main video (clear of the toolbar and tool strip)
-                // and of every block; the buttons follow it on the main video and sit at the bottom of a block.
+                // and of every block; the buttons are a column at the right of the main video and a row at the
+                // bottom of a block.
                 // In the picture-in-picture block the top corners hold its own buttons, so there it goes bottom right.
                 MultiCameraStreamLabel {
                     id:                     nameLabel
@@ -183,11 +189,13 @@ Item {
                     maximumWidth:           tile.showsFullControls ? tile.width / 3 : tile.width - root._margin * 2
                 }
 
+                // Main video: a column at the right edge, centred in the band between the instrument panels.
                 MultiCameraStreamControls {
-                    anchors.left:           nameLabel.right
-                    anchors.leftMargin:     root._margin
-                    anchors.verticalCenter: nameLabel.verticalCenter
+                    x:                      tile.width - root.mainControlsRight - width
+                    y:                      Math.max(root.mainControlsTop,
+                                                     (root.mainControlsTop + root.mainControlsBottom - height) / 2)
                     visible:                tile.showsFullControls
+                    vertical:               true
                     stream:                 tile.stream
                     buttonSize:             root._buttonSize
                     showWindow:             true

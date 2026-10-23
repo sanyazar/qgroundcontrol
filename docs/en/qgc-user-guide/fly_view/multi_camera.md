@@ -97,9 +97,9 @@ The row shrinks its blocks when there are many cameras, and the Fly View control
 - **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
 - **Resize the blocks** — drag the resize handle of the picture-in-picture block; the camera blocks follow its size.
 - **Full screen** — double-click the full-size camera (requires a connected vehicle).
-- **Camera name** — shown in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.
+- **Camera name** — shown in bold in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.
 
-The buttons next to the camera name of the full-size video (a shorter set at the bottom of each block):
+The buttons in a column at the right edge of the full-size video, between the instrument panels (a shorter row at the bottom of each block):
 
 | Button | Action |
 | ------ | ------ |
