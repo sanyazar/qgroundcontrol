@@ -313,29 +313,29 @@ Item {
                     showHide:               true
                 }
 
-                // Above the column: all preset cameras on their main (HD) or sub (SD) stream at once. Long press:
-                // back to each camera's own setting.
+                // Above the column: every camera with a sub stream (presets, custom URLs with a sub stream URL) on
+                // its main (HD) or sub (SD) stream at once. Long press: back to each camera's own setting.
                 Rectangle {
                     anchors.bottom:             mainControls.top
                     anchors.bottomMargin:       mainControls.spacing * 2
                     anchors.horizontalCenter:   mainControls.horizontalCenter
-                    width:                      root._buttonSize
-                    height:                     width
-                    radius:                     width / 2
+                    width:                      Math.max(root._buttonSize * 1.2, qualityText.implicitWidth + root._margin * 1.5)
+                    height:                     root._buttonSize * 1.2
+                    radius:                     height / 2
                     color:                      Qt.rgba(0, 0, 0, 0.6)
                     border.color:               "white"
-                    border.width:               root._multiCamera && root._multiCamera.streamQuality !== "" ? 1 : 0
-                    visible:                    tile.showsFullControls && !!root._multiCamera && root._multiCamera.hasPresetStreams
+                    border.width:               _quality !== "" ? 1 : 0
+                    visible:                    tile.showsFullControls && !!root._multiCamera && root._multiCamera.hasSubStreams
 
                     readonly property string _quality: root._multiCamera ? root._multiCamera.streamQuality : ""
 
                     QGCLabel {
+                        id:                 qualityText
                         anchors.centerIn:   parent
                         text:               parent._quality === "main" ? "HD" : (parent._quality === "sub" ? "SD" : "HD/SD")
                         color:              "white"
                         font.bold:          true
-                        font.pointSize:     parent._quality === "" ? ScreenTools.smallFontPointSize * 0.8
-                                                                   : ScreenTools.smallFontPointSize
+                        font.pointSize:     parent._quality === "" ? ScreenTools.defaultFontPointSize : ScreenTools.mediumFontPointSize
                     }
 
                     MouseArea {

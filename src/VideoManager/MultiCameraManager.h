@@ -32,11 +32,11 @@ class MultiCameraManager : public QObject
     Q_PROPERTY(MultiCameraStream* mainStream READ mainStream NOTIFY mainIndexChanged)
     /// Streams the user removed from the view, as {key, label} maps; they are not decoded until shown again.
     Q_PROPERTY(QVariantList hiddenStreams READ hiddenStreams NOTIFY hiddenStreamsChanged)
-    /// Main/sub stream of every preset camera (Dahua, Hikvision, Uniview) at once: "main", "sub", or "" for
-    /// each camera's own setting. Remembered across restarts.
+    /// Main/sub stream of every camera that has both (presets, and custom URLs with a sub stream URL) at once:
+    /// "main", "sub", or "" for each camera's own setting. Remembered across restarts.
     Q_PROPERTY(QString streamQuality READ streamQuality WRITE setStreamQuality NOTIFY streamQualityChanged)
-    /// Some shown stream is a preset camera, so streamQuality has an effect.
-    Q_PROPERTY(bool hasPresetStreams READ hasPresetStreams NOTIFY hasPresetStreamsChanged)
+    /// Some shown stream has a main and a sub stream, so streamQuality has an effect.
+    Q_PROPERTY(bool hasSubStreams READ hasSubStreams NOTIFY hasSubStreamsChanged)
 
 public:
     explicit MultiCameraManager(QObject* parent = nullptr);
@@ -71,7 +71,7 @@ public:
 
     void setStreamQuality(const QString& quality);
 
-    bool hasPresetStreams() const { return _hasPresetStreams; }
+    bool hasSubStreams() const { return _hasSubStreams; }
 
     /// Receiver URI for a MAVLink VIDEO_STREAM_INFORMATION, in the same form VideoManager uses.
     static QString uriForStreamInfo(const QGCVideoStreamInfo* info);
@@ -88,7 +88,7 @@ signals:
     void mainIndexChanged();
     void hiddenStreamsChanged();
     void streamQualityChanged();
-    void hasPresetStreamsChanged();
+    void hasSubStreamsChanged();
 
 private slots:
     void _scheduleRebuild();
@@ -104,7 +104,7 @@ private:
         int compId = 0;
         int streamId = 0;
         bool fromMavlink = false;
-        bool preset = false;
+        bool switchable = false;  ///< Has a main and a sub stream.
     };
 
     QList<StreamSpec> _collectStreams();
@@ -115,8 +115,8 @@ private:
     void _removeStream(MultiCameraStream* stream);
     MultiCameraStream* _findStream(const QString& key) const;
     void _saveHiddenKeys() const;
-    /// Stream URI of @p entry with streamQuality applied, and the URI its key is made from: the main stream's
-    /// for presets, so a stream keeps its key (main camera, hidden state, block placement) when switched.
+    /// Stream URI of @p entry with streamQuality applied, and the URI its key is made from: always the main
+    /// stream's, so a stream keeps its key (main camera, hidden state, block placement) when switched.
     void _entryUris(const QJsonObject& entry, QString* uri, QString* keyUri) const;
     void _requestMavlinkStreamStart(const StreamSpec& spec) const;
 
@@ -127,7 +127,7 @@ private:
     QSet<QString> _hiddenKeys;
     QVariantList _hiddenStreams;
     QString _streamQuality;
-    bool _hasPresetStreams = false;
+    bool _hasSubStreams = false;
     bool _backendReady = false;
     bool _initialized = false;
 };

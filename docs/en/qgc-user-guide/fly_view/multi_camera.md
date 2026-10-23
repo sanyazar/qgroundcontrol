@@ -54,6 +54,8 @@ Each entry of the list describes one stream:
   | MPEG-TS over UDP | `mpegts://0.0.0.0:5602` |
   | TCP MPEG | `tcp://192.168.1.10:5000` |
 
+For a **Custom URL**, check **Sub stream** to enter a second, lower-resolution URL of the same camera (for example `rtsp://192.168.1.10:8554/sub`) and choose which of the two the camera normally uses (**Stream**); the Fly View's **HD/SD** button then switches it like a preset camera.
+
 Press **Add Stream** to add a stream and the trash icon to delete one.
 Changes apply immediately; there is no need to restart _QGroundControl_.
 
@@ -97,7 +99,7 @@ The column shrinks its blocks when there are many cameras, and the Fly View cont
 - **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
 - **Resize** — drag the resize handle (top right) of the picture-in-picture block; the column of camera blocks follows its size. Each camera block has its own resize handle too.
 - **Move** — drag the handle (six dots) on the top edge of a block. The picture-in-picture block takes the hidden-cameras button and the column of camera blocks with it; a camera block moves on its own and leaves the column. Places and sizes are remembered per camera. Double-click a camera block's handle to put it back in the column.
-- **All cameras HD/SD** — the round **HD/SD** button above the button column switches every preset camera (Dahua, Hikvision, Uniview) to its main stream (**HD**) or sub stream (**SD**) at once; a long press goes back to each camera's own **Stream** setting. Custom URLs are not affected.
+- **All cameras HD/SD** — the **HD/SD** button above the button column switches every camera that has a sub stream (Dahua, Hikvision and Uniview presets, and custom URLs with **Sub stream** enabled) to its main stream (**HD**) or sub stream (**SD**) at once; a long press goes back to each camera's own **Stream** setting. Custom URLs without a sub stream are not affected.
 - **Hide the blocks** — the arrow button of the picture-in-picture block collapses it, and the camera blocks are hidden with it; the restore button brings them all back.
 - **Full screen** — double-click the full-size camera (requires a connected vehicle).
 - **Camera name** — shown in bold in the top left corner of the full-size video (right of the tool strip) and of every block; in the picture-in-picture block it is in the bottom right corner, clear of the block's own buttons.

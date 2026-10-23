@@ -187,17 +187,53 @@ ColumnLayout {
                     }
                 }
 
-                // Custom URL
+                // Custom URL, optionally with a sub stream for the Fly View's HD/SD switch
                 ColumnLayout {
                     Layout.fillWidth: true
                     visible: !entryCard._isPreset
 
-                    QGCLabel { text: qsTr("Stream URL") }
+                    readonly property bool _subEnabled: entryCard.modelData.subEnabled === true
+
+                    QGCLabel { text: _subEnabled ? qsTr("Main stream URL") : qsTr("Stream URL") }
                     QGCTextField {
                         Layout.fillWidth: true
                         text: entryCard.modelData.uri !== undefined ? entryCard.modelData.uri : ""
                         placeholderText: "rtsp://192.168.1.10:8554/main"
                         onEditingFinished: _root._update(entryCard.index, { uri: text.trim() })
+                    }
+
+                    QGCCheckBox {
+                        text: qsTr("Sub stream (lower resolution, for the HD/SD switch)")
+                        checked: parent._subEnabled
+                        onClicked: _root._update(entryCard.index, { subEnabled: checked })
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: parent._subEnabled
+                        spacing: ScreenTools.defaultFontPixelWidth
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+
+                            QGCLabel { text: qsTr("Sub stream URL") }
+                            QGCTextField {
+                                Layout.fillWidth: true
+                                text: entryCard.modelData.subUri !== undefined ? entryCard.modelData.subUri : ""
+                                placeholderText: "rtsp://192.168.1.10:8554/sub"
+                                onEditingFinished: _root._update(entryCard.index, { subUri: text.trim() })
+                            }
+                        }
+
+                        ColumnLayout {
+                            QGCLabel { text: qsTr("Stream") }
+                            QGCComboBox {
+                                Layout.preferredWidth: _root._fieldWidth
+                                model: _root._streamKinds.map(function (k) { return k.text })
+                                currentIndex: _root._indexOf(_root._streamKinds, entryCard.modelData.stream, 0)
+                                onActivated: (comboIndex) => _root._update(entryCard.index, { stream: _root._streamKinds[comboIndex].value })
+                            }
+                        }
                     }
                 }
 

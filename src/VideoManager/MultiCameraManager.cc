@@ -37,10 +37,20 @@ constexpr int kDefaultRtspPort = 554;
 const QString kHiddenStreamsSettingsKey = QStringLiteral("MultiCamera/hiddenStreams");
 const QString kStreamQualitySettingsKey = QStringLiteral("MultiCamera/streamQuality");
 
-bool isPresetEntry(const QJsonObject& entry)
+bool isCustomEntry(const QJsonObject& entry)
 {
     const QString type = entry.value(QStringLiteral("type")).toString();
-    return !type.isEmpty() && (type != QLatin1String("custom"));
+    return type.isEmpty() || (type == QLatin1String("custom"));
+}
+
+/// Presets always have a sub stream; a custom URL when its sub stream URL is enabled and filled in.
+bool hasSubStream(const QJsonObject& entry)
+{
+    if (!isCustomEntry(entry)) {
+        return true;
+    }
+    return entry.value(QStringLiteral("subEnabled")).toBool() &&
+           !entry.value(QStringLiteral("subUri")).toString().trimmed().isEmpty();
 }
 
 // Vendor RTSP layouts; channel is 1-based (NVR channel or 1 for a single camera).
@@ -81,10 +91,12 @@ QString uriHash(const QString& uri)
 
 QUrl manualStreamUrl(const QJsonObject& entry)
 {
-    const QString type = entry.value(QStringLiteral("type")).toString();
-    if (type.isEmpty() || (type == QLatin1String("custom"))) {
-        return QUrl(entry.value(QStringLiteral("uri")).toString().trimmed());
+    if (isCustomEntry(entry)) {
+        const bool sub =
+            hasSubStream(entry) && (entry.value(QStringLiteral("stream")).toString() == QLatin1String("sub"));
+        return QUrl(entry.value(sub ? QStringLiteral("subUri") : QStringLiteral("uri")).toString().trimmed());
     }
+    const QString type = entry.value(QStringLiteral("type")).toString();
 
     const QString host = entry.value(QStringLiteral("host")).toString().trimmed();
     if (host.isEmpty()) {
@@ -246,7 +258,7 @@ void MultiCameraManager::setStreamQuality(const QString& quality)
 
 void MultiCameraManager::_entryUris(const QJsonObject& entry, QString* uri, QString* keyUri) const
 {
-    if (!isPresetEntry(entry)) {
+    if (!hasSubStream(entry)) {
         *uri = manualStreamUri(entry);
         *keyUri = *uri;
         return;
@@ -451,7 +463,7 @@ void MultiCameraManager::_appendLinkStreams(QList<StreamSpec>& specs)
             spec.label = name;
             spec.uri = uri;
             spec.vehicleId = vehicleId;
-            spec.preset = isPresetEntry(entry);
+            spec.switchable = hasSubStream(entry);
             specs.append(spec);
         }
     }
@@ -481,7 +493,7 @@ void MultiCameraManager::_appendManualStreams(QList<StreamSpec>& specs) const
         spec.label = (vehicleId > 0) ? tr("Vehicle %1 · %2").arg(vehicleId).arg(name) : name;
         spec.uri = uri;
         spec.vehicleId = vehicleId;
-        spec.preset = isPresetEntry(entry);
+        spec.switchable = hasSubStream(entry);
         specs.append(spec);
     }
 }
@@ -571,10 +583,10 @@ QList<MultiCameraManager::StreamSpec> MultiCameraManager::_collectStreams()
         emit hiddenStreamsChanged();
     }
     const bool hasPresets =
-        std::any_of(result.cbegin(), result.cend(), [](const StreamSpec& spec) { return spec.preset; });
-    if (hasPresets != _hasPresetStreams) {
-        _hasPresetStreams = hasPresets;
-        emit hasPresetStreamsChanged();
+        std::any_of(result.cbegin(), result.cend(), [](const StreamSpec& spec) { return spec.switchable; });
+    if (hasPresets != _hasSubStreams) {
+        _hasSubStreams = hasPresets;
+        emit hasSubStreamsChanged();
     }
     return result;
 }
@@ -625,9 +637,9 @@ void MultiCameraManager::_rebuild()
         _hiddenStreams.clear();
         emit hiddenStreamsChanged();
     }
-    if (!enabled() && _hasPresetStreams) {
-        _hasPresetStreams = false;
-        emit hasPresetStreamsChanged();
+    if (!enabled() && _hasSubStreams) {
+        _hasSubStreams = false;
+        emit hasSubStreamsChanged();
     }
     const int oldMainIndex = mainIndex();
     bool changed = false;
