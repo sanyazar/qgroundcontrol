@@ -1,34 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450" font-family="Helvetica, Arial, sans-serif">
-  <title>Multi-camera layout: main stream with thumbnails</title>
+  <title>Multi-camera layout: selected camera full size, map and other cameras as blocks</title>
   <rect width="800" height="450" fill="#1b1f23"/>
   <rect x="0" y="0" width="800" height="36" fill="#000" opacity="0.55"/>
   <text x="16" y="23" fill="#ddd" font-size="13">QGroundControl toolbar</text>
 
+  <text x="400" y="170" fill="#666" font-size="22" text-anchor="middle">selected camera (or map)</text>
+  <text x="400" y="196" fill="#666" font-size="13" text-anchor="middle">double-click: full screen</text>
+
+  <rect x="610" y="275" width="176" height="24" rx="4" fill="#000" opacity="0.6"/>
+  <text x="778" y="292" fill="#fff" font-size="13" text-anchor="end">Drone 1 · Front</text>
+  <text x="784" y="318" fill="#9cf" font-size="11" text-anchor="end">camera name: bottom right</text>
+
   <g>
-    <rect x="182" y="48" width="140" height="79" fill="#3a4a5c" stroke="#fff" stroke-width="1.5"/>
-    <rect x="182" y="111" width="104" height="16" fill="#000" opacity="0.6"/>
-    <text x="186" y="123" fill="#fff" font-size="10">Vehicle 1 · Down</text>
-    <rect x="330" y="48" width="140" height="79" fill="#4b3a5c" stroke="#fff" stroke-width="1.5"/>
-    <rect x="330" y="111" width="112" height="16" fill="#000" opacity="0.6"/>
-    <text x="334" y="123" fill="#fff" font-size="10">Vehicle 2 · Front</text>
-    <rect x="478" y="48" width="140" height="79" fill="#5c4a3a" stroke="#fff" stroke-width="1.5"/>
-    <rect x="478" y="111" width="118" height="16" fill="#000" opacity="0.6"/>
-    <text x="482" y="123" fill="#fff" font-size="10">Vehicle 2 · Thermal</text>
-    <text x="400" y="145" fill="#9cf" font-size="12" text-anchor="middle">thumbnails — click to make main</text>
+    <rect x="12" y="320" width="196" height="110" fill="#2f4a2f" stroke="#fff" stroke-width="1.5"/>
+    <text x="110" y="380" fill="#cfc" font-size="14" text-anchor="middle">map</text>
+    <rect x="218" y="320" width="196" height="110" fill="#3a4a5c" stroke="#fff" stroke-width="1.5"/>
+    <rect x="320" y="412" width="92" height="16" fill="#000" opacity="0.6"/>
+    <text x="408" y="424" fill="#fff" font-size="10" text-anchor="end">Drone 1 · Down</text>
+    <circle cx="308" cy="420" r="8" fill="#000" opacity="0.6"/>
+    <circle cx="308" cy="420" r="4" fill="#e53935"/>
+    <rect x="424" y="320" width="196" height="110" fill="#4b3a5c" stroke="#fff" stroke-width="1.5"/>
+    <rect x="516" y="412" width="102" height="16" fill="#000" opacity="0.6"/>
+    <text x="614" y="424" fill="#fff" font-size="10" text-anchor="end">Drone 2 · Front</text>
+    <circle cx="504" cy="420" r="8" fill="#000" opacity="0.6"/>
+    <circle cx="504" cy="420" r="4" fill="#e53935"/>
+    <text x="316" y="312" fill="#9cf" font-size="12" text-anchor="middle">map and other cameras as blocks — click one to show it full size</text>
   </g>
 
-  <text x="400" y="250" fill="#666" font-size="22" text-anchor="middle">main stream</text>
-  <text x="400" y="276" fill="#666" font-size="13" text-anchor="middle">double-click: full screen</text>
-
-  <rect x="16" y="400" width="150" height="30" rx="5" fill="#000" opacity="0.6"/>
-  <circle cx="30" cy="415" r="5" fill="#e53935"/>
-  <text x="42" y="420" fill="#fff" font-size="13">Vehicle 1 · Front</text>
-  <text x="16" y="392" fill="#9cf" font-size="11">red dot = recording</text>
-
-  <circle cx="728" cy="415" r="16" fill="#000" opacity="0.6"/>
-  <circle cx="728" cy="415" r="8" fill="#e53935"/>
-  <circle cx="768" cy="415" r="16" fill="#000" opacity="0.6"/>
-  <rect x="760" y="409" width="16" height="12" rx="2" fill="#fff"/>
-  <circle cx="768" cy="415" r="3.5" fill="#000"/>
-  <text x="784" y="392" fill="#9cf" font-size="11" text-anchor="end">record · photo</text>
+  <circle cx="560" cy="287" r="13" fill="#000" opacity="0.6"/>
+  <circle cx="560" cy="287" r="6" fill="#e53935"/>
+  <circle cx="592" cy="287" r="13" fill="#000" opacity="0.6"/>
+  <rect x="585" y="282" width="14" height="10" rx="2" fill="#fff"/>
+  <text x="576" y="258" fill="#9cf" font-size="11" text-anchor="middle">record · photo</text>
 </svg>

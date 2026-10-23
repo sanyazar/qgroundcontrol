@@ -52,6 +52,28 @@ Item {
     property real   _fullItemZorder:    0
     property real   _pipItemZorder:     QGroundControl.zOrderWidgets
 
+    // Area of the PiP block plus the camera block row, in the coordinates of an item at (originX, originY),
+    // so the widget layer keeps its controls clear of both.
+    function _bottomLeftBlocksRect(originX, originY, emptyY) {
+        var left = Number.MAX_VALUE, top = Number.MAX_VALUE, right = -Number.MAX_VALUE, bottom = -Number.MAX_VALUE
+        if (_pipView.visible) {
+            left = _pipView.x + _pipView.occupiedRect.x
+            top = _pipView.y + _pipView.occupiedRect.y
+            right = left + _pipView.occupiedRect.width
+            bottom = top + _pipView.occupiedRect.height
+        }
+        if (cameraStrip.visible) {
+            left = Math.min(left, cameraStrip.x)
+            top = Math.min(top, cameraStrip.y)
+            right = Math.max(right, cameraStrip.x + cameraStrip.width)
+            bottom = Math.max(bottom, cameraStrip.y + cameraStrip.height)
+        }
+        if (right < left) {
+            return Qt.rect(0, emptyY, 0, 0)
+        }
+        return Qt.rect(left - originX, top - originY, right - left, bottom - top)
+    }
+
     function dropMainStatusIndicatorTool(showMessages = false) {
         toolbar.dropMainStatusIndicatorTool(showMessages);
     }
@@ -108,8 +130,17 @@ Item {
         }
 
         FlyViewVideo {
-            id:         videoControl
-            pipView:    _pipView
+            id:                     videoControl
+            pipView:                _pipView
+            cameraStripHost:        cameraStrip
+            cameraStripTileWidth:   cameraStrip.tileWidth
+
+            // Clicking a camera block shows that camera full size, also when the map was the full item.
+            onCameraSelected: {
+                if (_mainWindowIsMap) {
+                    _pipView._swapPip()
+                }
+            }
         }
 
         PipView {
@@ -127,6 +158,29 @@ Item {
             z:                      QGroundControl.zOrderWidgets
         }
 
+        // Multi-camera mode: one block per camera that is not the selected one, in a row next to the
+        // PiP block (which holds the map or the selected camera), so every camera and the map stay visible.
+        Item {
+            id:                     cameraStrip
+            anchors.left:           parent.left
+            anchors.bottom:         parent.bottom
+            anchors.margins:        _toolsMargin
+            // Right of the PiP block, or of its restore button while the block is collapsed.
+            anchors.leftMargin:     _toolsMargin + (_pipView.visible ? _pipView.occupiedRect.x + _pipView.occupiedRect.width + _toolsMargin : 0)
+            width:                  count > 0 ? count * tileWidth + (count - 1) * _toolsMargin : 0
+            height:                 count > 0 ? tileWidth * 9 / 16 : 0
+            visible:                count > 0 && !QGroundControl.videoManager.fullScreen
+            z:                      QGroundControl.zOrderWidgets
+
+            readonly property int  count:       videoControl.cameraStripCount
+            // Same size as the PiP block, shrunk when the row would run past three quarters of the view.
+            readonly property real _pipWidth:   _pipView.visible ? _pipView.width : _root.width * 0.2
+            readonly property real _room:       _root.width * 0.75 - x
+            readonly property real tileWidth:   count > 0 ? Math.max(ScreenTools.defaultFontPixelHeight * 6,
+                                                                     Math.min(_pipWidth, (_room - (count - 1) * _toolsMargin) / count))
+                                                          : _pipWidth
+        }
+
         FlyViewWidgetLayer {
             id:                     widgetLayer
             objectName:             "flyViewWidgetLayer"
@@ -137,7 +191,7 @@ Item {
             anchors.margins:        _widgetMargin
             anchors.topMargin:      toolbar.height + _widgetMargin
             z:                      _fullItemZorder + 2
-            pipViewRect:            _pipView.visible ? Qt.rect(_pipView.x + _pipView.occupiedRect.x - x, _pipView.y + _pipView.occupiedRect.y - y, _pipView.occupiedRect.width, _pipView.occupiedRect.height) : Qt.rect(0, height, 0, 0)
+            pipViewRect:            _bottomLeftBlocksRect(x, y, height)
             mapControl:             _mapControl
             viewer3DCameraController: viewer3DLoader.item ? viewer3DLoader.item.cameraController : null
             visible:                !QGroundControl.videoManager.fullScreen

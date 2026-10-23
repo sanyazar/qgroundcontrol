@@ -9,6 +9,14 @@ Item {
     property Item pipView
     property Item pipState: videoPipState
 
+    // Multi-camera mode: blocks of the cameras other than the selected one live in this FlyView-level item.
+    property Item cameraStripHost:      null
+    property real cameraStripTileWidth: ScreenTools.defaultFontPixelHeight * 10
+    readonly property int cameraStripCount: _multiCameraMode ? multiCameraView.stripCount : 0
+
+    /// A camera block in the strip was clicked; it is now the selected camera.
+    signal cameraSelected()
+
     readonly property var  _multiCamera:        QGroundControl.videoManager.multiCamera
     readonly property bool _multiCameraMode:    _multiCamera && _multiCamera.enabled
 
@@ -56,9 +64,13 @@ Item {
     }
 
     MultiCameraView {
-        anchors.fill:   parent
-        compact:        _root.pipState.state !== _root.pipState.fullState
-        visible:        _root._multiCameraMode
+        id:                 multiCameraView
+        anchors.fill:       parent
+        compact:            _root.pipState.state !== _root.pipState.fullState
+        visible:            _root._multiCameraMode
+        stripHost:          _root._multiCameraMode ? _root.cameraStripHost : null
+        stripTileWidth:     _root.cameraStripTileWidth
+        onCameraSelected:   _root.cameraSelected()
     }
 
     QGCLabel {

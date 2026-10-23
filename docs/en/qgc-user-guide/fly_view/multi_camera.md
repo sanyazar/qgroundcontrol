@@ -1,7 +1,7 @@
 # Multiple Cameras
 
 Multi-camera mode shows several video streams at the same time: more than one camera on a vehicle, cameras on several vehicles, or both.
-One stream is shown large (the _main_ stream) and the others appear as thumbnails along the top of the video view.
+One item — the selected camera or the map — fills the Fly View; the map (when it is not the full item) and every other camera are shown as blocks of the same size along the bottom left, so nothing is hidden.
 
 ![Multi-camera layout](../../../assets/fly/multi_camera_layout.svg)
 
@@ -90,17 +90,20 @@ Use a dedicated camera account with view-only rights.
 
 ## Using the Video View
 
-- **Switch the main stream** — click a thumbnail. Streams keep running while you switch, so there is no reconnect delay.
-- **Full screen** — double-click the main stream (requires a connected vehicle).
-- **Camera name** — shown in the bottom right corner of every tile.
-- **Record** — press the red circle in the bottom left corner of a tile to start recording that stream; it turns into a square while recording, and a red dot appears next to the stream name.
+The bottom left corner holds the picture-in-picture block — the map while a camera is full size, or the selected camera while the map is full size — followed by one block per other camera, all the same size.
+The row shrinks its blocks when there are many cameras, and the Fly View controls keep clear of it.
+
+- **Show a camera full size** — click its block. If the map was full size, it moves into the picture-in-picture block. Streams keep running while you switch, so there is no reconnect delay.
+- **Show the map full size** — click the picture-in-picture block while it shows the map; the selected camera takes its place.
+- **Resize the blocks** — drag the resize handle of the picture-in-picture block; the camera blocks follow its size.
+- **Full screen** — double-click the full-size camera (requires a connected vehicle).
+- **Camera name** — shown in the bottom right corner of the full-size video and of every block.
+- **Record** — press the red circle next to the camera name to start recording that stream; it turns into a square while recording, and a red dot appears next to the name.
   Each stream records into its own file.
 - **Photo** — press the camera icon next to it to save the current frame of that stream.
 
-The record and photo buttons are shown on a tile once its video is decoding.
-A tile shows **WAITING FOR VIDEO** until the first frame arrives, and the view shows **NO CAMERA STREAMS** when no stream is configured or discovered.
-
-When the video is in the small picture-in-picture window, only the main stream is shown, without thumbnails or buttons.
+The record and photo buttons are shown once a stream is decoding (not on the picture-in-picture block).
+A block shows **WAITING FOR VIDEO** until the first frame arrives, and the view shows **NO CAMERA STREAMS** when no stream is configured or discovered.
 
 ### Saved Files
 
